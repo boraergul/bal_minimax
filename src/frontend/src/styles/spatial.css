@@ -1,0 +1,298 @@
+/* ==========================================
+   SPATIAL UI DESIGN SYSTEM
+   Design Tokens & Global Styles
+   ========================================== */
+
+/* 
+ * Using CSS Custom Properties for theming
+ * These can be overridden for dark mode or custom themes
+ */
+
+:root {
+  /* ==========================================
+     COLOR TOKENS
+     ========================================== */
+  
+  /* Primary Brand */
+  --color-primary: 220 90% 56%; /* HSL: 220, 90%, 56% = #3B82F6 */
+  --color-primary-50: 220 90% 95%;
+  --color-primary-100: 220 90% 90%;
+  --color-primary-200: 220 90% 80%;
+  --color-primary-300: 220 90% 70%;
+  --color-primary-400: 220 90% 60%;
+  --color-primary-500: 220 90% 56%;
+  --color-primary-600: 220 90% 46%;
+  --color-primary-700: 220 90% 36%;
+  --color-primary-800: 220 90% 26%;
+  --color-primary-900: 220 90% 16%;
+  --color-primary-950: 220 90% 8%;
+  
+  /* Surface Colors (for depth) */
+  --color-surface-0: 0 0% 100%;     /* #FFFFFF */
+  --color-surface-50: 210 40% 98%; /* #F8FAFC */
+  --color-surface-100: 210 40% 96%;
+  --color-surface-200: 210 40% 90%;
+  --color-surface-300: 210 30% 80%;
+  --color-surface-400: 215 20% 65%;
+  --color-surface-500: 215 16% 47%;
+  --color-surface-600: 215 25% 32%;
+  --color-surface-700: 215 30% 25%;
+  --color-surface-800: 215 30% 14%;
+  --color-surface-900: 220 30% 8%;
+  
+  /* Semantic Colors */
+  --color-success: 160 84% 39%;  /* Emerald */
+  --color-warning: 38 92% 50%;  /* Amber */
+  --color-danger: 0 84% 60%;    /* Red */
+  --color-info: 189 94% 43%;    /* Cyan */
+  
+  /* Text Colors */
+  --color-foreground: 220 13% 18%;   /* Near black */
+  --color-secondary: 220 9% 46%;     /* Gray */
+  --color-muted: 220 14% 96%;        /* Light gray */
+  --color-border: 220 13% 91%;      /* Border gray */
+  
+  /* ==========================================
+     ELEVATION / SHADOW TOKENS
+     ========================================== */
+  --shadow-elevation-0: none;
+  --shadow-elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-elevation-2: 
+    0 1px 3px 0 rgb(0 0 0 / 0.1), 
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-elevation-3: 
+    0 4px 6px -1px rgb(0 0 0 / 0.1), 
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-elevation-4: 
+    0 10px 15px -3px rgb(0 0 0 / 0.1), 
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-elevation-5: 
+    0 20px 25px -5px rgb(0 0 0 / 0.1), 
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-float: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  
+  /* ==========================================
+     SPACING TOKENS (8px Grid)
+     ========================================== */
+  --space-0: 0;
+  --space-0-5: 0.125rem;  /* 2px */
+  --space-1: 0.25rem;     /* 4px */
+  --space-1-5: 0.375rem;  /* 6px */
+  --space-2: 0.5rem;      /* 8px */
+  --space-2-5: 0.625rem;  /* 10px */
+  --space-3: 0.75rem;     /* 12px */
+  --space-3-5: 0.875rem;  /* 14px */
+  --space-4: 1rem;        /* 16px */
+  --space-5: 1.25rem;     /* 20px */
+  --space-6: 1.5rem;      /* 24px */
+  --space-8: 2rem;        /* 32px */
+  --space-10: 2.5rem;     /* 40px */
+  --space-12: 3rem;       /* 48px */
+  --space-16: 4rem;       /* 64px */
+  --space-20: 5rem;       /* 80px */
+  
+  /* ==========================================
+     BORDER RADIUS TOKENS
+     ========================================== */
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.5rem;    /* 8px */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-xl: 1rem;      /* 16px */
+  --radius-2xl: 1.5rem;   /* 24px */
+  --radius-full: 9999px;
+  
+  /* ==========================================
+     TRANSITION TOKENS
+     ========================================== */
+  --duration-fast: 75ms;
+  --duration-normal: 150ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ==========================================
+   DARK MODE TOKENS
+   ========================================== */
+
+.dark {
+  --color-surface-0: 220 20% 10%;
+  --color-surface-50: 220 20% 14%;
+  --color-surface-100: 220 20% 18%;
+  --color-surface-200: 220 18% 24%;
+  --color-surface-300: 220 16% 32%;
+  --color-surface-400: 220 14% 40%;
+  --color-surface-500: 220 12% 50%;
+  --color-surface-600: 220 10% 60%;
+  --color-surface-700: 220 14% 70%;
+  --color-surface-800: 220 20% 82%;
+  --color-surface-900: 220 40% 96%;
+  
+  --color-foreground: 220 20% 95%;
+  --color-secondary: 220 15% 65%;
+  --color-muted: 220 18% 20%;
+  --color-border: 220 15% 25%;
+  
+  --shadow-elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+  --shadow-elevation-2: 
+    0 1px 3px 0 rgb(0 0 0 / 0.3), 
+    0 1px 2px -1px rgb(0 0 0 / 0.2);
+  --shadow-elevation-3: 
+    0 4px 6px -1px rgb(0 0 0 / 0.3), 
+    0 2px 4px -2px rgb(0 0 0 / 0.2);
+}
+
+/* ==========================================
+   GLOBAL SPATIAL UTILITIES
+   ========================================== */
+
+@layer utilities {
+  /* Elevation utilities */
+  .elevation-0 { box-shadow: var(--shadow-elevation-0); }
+  .elevation-1 { box-shadow: var(--shadow-elevation-1); }
+  .elevation-2 { box-shadow: var(--shadow-elevation-2); }
+  .elevation-3 { box-shadow: var(--shadow-elevation-3); }
+  .elevation-4 { box-shadow: var(--shadow-elevation-4); }
+  .elevation-5 { box-shadow: var(--shadow-elevation-5); }
+  .elevation-float { box-shadow: var(--shadow-float); }
+  
+  /* Surface utilities */
+  .surface-0 { background-color: hsl(var(--color-surface-0)); }
+  .surface-50 { background-color: hsl(var(--color-surface-50)); }
+  .surface-100 { background-color: hsl(var(--color-surface-100)); }
+  
+  /* Touch target utility */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Spatial transition */
+  .transition-spatial {
+    transition: 
+      box-shadow var(--duration-normal) var(--ease-out),
+      transform var(--duration-normal) var(--ease-out),
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      opacity var(--duration-fast) var(--ease-out);
+  }
+  
+  /* Hover lift effect */
+  .hover-lift {
+    transition: transform var(--duration-normal) var(--ease-out), 
+                box-shadow var(--duration-normal) var(--ease-out);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevation-3);
+  }
+  
+  /* Press effect */
+  .press-effect:active {
+    transform: scale(0.98);
+  }
+  
+  /* Glass effect */
+  .glass {
+    background: hsl(var(--color-surface-0) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  /* Scrollbar hide utility */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ==========================================
+   ANIMATIONS
+   ========================================== */
+
+@keyframes spatial-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spatial-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Animation utilities */
+.animate-spatial-in {
+  animation: spatial-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-spatial-out {
+  animation: spatial-out 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 150ms ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Staggered children animation */
+.stagger-children > * {
+  opacity: 0;
+  animation: spatial-in 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }

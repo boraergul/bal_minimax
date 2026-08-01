@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker/**/data/
+docker/**/logs/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Secrets (if any)
+*.pem
+*.key
+credentials.json
