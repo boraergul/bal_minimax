@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Package, Plus, Search, Filter } from 'lucide-react'
 import api from '@/lib/api'
@@ -23,6 +24,7 @@ interface StokItem {
 export function StokListPage() {
   const [arama, setArama] = useState('')
   const [page, setPage] = useState(1)
+  const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
     queryKey: ['stok-listesi', page, arama],
@@ -49,7 +51,7 @@ export function StokListPage() {
             {data?.toplam || 0} kayıt bulundu
           </p>
         </div>
-        <Button>
+        <Button onClick={() => navigate('/stok/yeni')}>
           <Plus className="h-4 w-4 mr-2" />
           Yeni Stok Girişi
         </Button>

@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Plus, Search } from 'lucide-react'
 import api from '@/lib/api'
@@ -20,6 +21,7 @@ interface Musteri {
 export function MusterilerPage() {
   const [arama, setArama] = useState('')
   const [page, setPage] = useState(1)
+  const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
     queryKey: ['musteriler-listesi', page, arama],
@@ -46,7 +48,7 @@ export function MusterilerPage() {
             {data?.toplam || 0} müşteri kayıtlı
           </p>
         </div>
-        <Button>
+        <Button onClick={() => navigate('/musteriler/yeni')}>
           <Plus className="h-4 w-4 mr-2" />
           Yeni Müşteri
         </Button>

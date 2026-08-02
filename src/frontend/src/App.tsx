@@ -25,6 +25,9 @@ import { OzelliklerPage } from './pages/OzelliklerPage'
 import { StokDuzeltmePage } from './pages/StokDuzeltmePage'
 import { EtiketPage } from './pages/EtiketPage'
 import { RaporlarGenisletilmisPage } from './pages/RaporlarGenisletilmisPage'
+import { StokGirisPage } from './pages/StokGirisPage'
+import { TedarikciCreatePage } from './pages/TedarikciCreatePage'
+import { MusteriCreatePage } from './pages/MusteriCreatePage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -50,6 +53,7 @@ function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="stok" element={<StokListPage />} />
+        <Route path="stok/yeni" element={<StokGirisPage />} />
         <Route path="stok/duzeltme" element={<StokDuzeltmePage />} />
         <Route path="izlenebilirlik" element={<IzlenebilirlikPage />} />
         <Route path="uretim" element={<UretimListPage />} />
@@ -61,7 +65,9 @@ function App() {
         <Route path="urunler" element={<UrunlerPage />} />
         <Route path="urunler/ozellikler" element={<OzelliklerPage />} />
         <Route path="tedarikciler" element={<TedarikcilerPage />} />
+        <Route path="tedarikciler/yeni" element={<TedarikciCreatePage />} />
         <Route path="musteriler" element={<MusterilerPage />} />
+        <Route path="musteriler/yeni" element={<MusteriCreatePage />} />
         {/* New Routes */}
         <Route path="kalite-kontrol" element={<KaliteKontrolPage />} />
         <Route path="depo" element={<DepoYonetimPage />} />
