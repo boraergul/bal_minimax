@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
+import { useForm, SubmitHandler } from 'react-hook-form'
 import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,24 +28,6 @@ interface TedarikciCreate {
   not_text?: string
 }
 
-const schema = yup.object({
-  ad: yup.string().required('Firma adı zorunludur'),
-  vergi_no: yup.string().required('Vergi numarası zorunludur'),
-  telefon: yup.string().optional(),
-  eposta: yup.string().email('Geçerli bir e-posta adresi giriniz').optional(),
-  adres: yup.string().optional(),
-  faks: yup.string().optional(),
-  yetkili_kisi: yup.string().optional(),
-  yetkili_telefon: yup.string().optional(),
-  yetkili_eposta: yup.string().email('Geçerli bir e-posta adresi giriniz').optional(),
-  banka_adi: yup.string().optional(),
-  banka_sube: yup.string().optional(),
-  hesap_no: yup.string().optional(),
-  odeme_vadesi: yup.number().optional().nullable(),
-  tedarikci_sinifi: yup.string().oneOf(['A', 'B', 'C']).optional(),
-  not_text: yup.string().optional(),
-})
-
 export function TedarikciCreatePage() {
   const navigate = useNavigate()
   const [submitSuccess, setSubmitSuccess] = useState(false)
@@ -60,7 +40,6 @@ export function TedarikciCreatePage() {
     watch,
     formState: { errors },
   } = useForm<TedarikciCreate>({
-    resolver: yupResolver(schema) as any,
     defaultValues: {
       odeme_vadesi: undefined,
       tedarikci_sinifi: undefined,
@@ -89,7 +68,7 @@ export function TedarikciCreatePage() {
     },
   })
 
-  const onSubmit = (data: TedarikciCreate) => {
+  const onSubmit: SubmitHandler<TedarikciCreate> = (data) => {
     setSubmitSuccess(false)
     setSubmitError(null)
     mutation.mutate(data)
@@ -146,7 +125,7 @@ export function TedarikciCreatePage() {
                     </Label>
                     <Input
                       id="ad"
-                      {...register('ad')}
+                      {...register('ad', { required: 'Firma adı zorunludur' })}
                       placeholder="Firma adını giriniz"
                       className={errors.ad ? 'border-red-500' : ''}
                     />
@@ -162,7 +141,7 @@ export function TedarikciCreatePage() {
                     </Label>
                     <Input
                       id="vergi_no"
-                      {...register('vergi_no')}
+                      {...register('vergi_no', { required: 'Vergi numarası zorunludur' })}
                       placeholder="Vergi numarasını giriniz"
                       className={errors.vergi_no ? 'border-red-500' : ''}
                     />
@@ -187,7 +166,12 @@ export function TedarikciCreatePage() {
                     <Input
                       id="eposta"
                       type="email"
-                      {...register('eposta')}
+                      {...register('eposta', {
+                        pattern: {
+                          value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                          message: 'Geçerli bir e-posta adresi giriniz',
+                        },
+                      })}
                       placeholder="ornek@firma.com"
                       className={errors.eposta ? 'border-red-500' : ''}
                     />
@@ -248,7 +232,12 @@ export function TedarikciCreatePage() {
                     <Input
                       id="yetkili_eposta"
                       type="email"
-                      {...register('yetkili_eposta')}
+                      {...register('yetkili_eposta', {
+                        pattern: {
+                          value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                          message: 'Geçerli bir e-posta adresi giriniz',
+                        },
+                      })}
                       placeholder="Yetkili e-posta adresi"
                       className={errors.yetkili_eposta ? 'border-red-500' : ''}
                     />

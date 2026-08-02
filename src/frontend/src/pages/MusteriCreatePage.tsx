@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
-
+import { useForm, SubmitHandler } from 'react-hook-form'
 import api from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,20 +24,6 @@ interface MusteriCreate {
   odeme_vadesi?: number
 }
 
-const schema = yup.object({
-  ad: yup.string().required('Müşteri adı zorunludur'),
-  telefon: yup.string().optional(),
-  eposta: yup.string().email('Geçerli bir e-posta adresi giriniz').optional(),
-  adres: yup.string().optional(),
-  vergi_no: yup.string().optional(),
-  musteri_tipi: yup.string().oneOf(['BIREYSEL', 'KURUMSAL']).optional(),
-  musteri_sinifi: yup.string().oneOf(['A', 'B', 'C']).optional(),
-  teslimat_adresi: yup.string().optional(),
-  il: yup.string().optional(),
-  ilce: yup.string().optional(),
-  odeme_vadesi: yup.number().oneOf([7, 14, 30, 60, 90]).optional(),
-})
-
 export default function MusteriCreatePage() {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -54,7 +37,6 @@ export default function MusteriCreatePage() {
     reset,
     formState: { errors },
   } = useForm<MusteriCreate>({
-    resolver: yupResolver(schema) as any,
     defaultValues: {
       ad: '',
       telefon: '',
@@ -102,7 +84,7 @@ export default function MusteriCreatePage() {
     },
   })
 
-  const onSubmit = (data: MusteriCreate) => {
+  const onSubmit: SubmitHandler<MusteriCreate> = (data) => {
     setServerError(null)
     const payload: MusteriCreate = { ...data }
     if (!payload.musteri_tipi) delete payload.musteri_tipi
@@ -152,8 +134,9 @@ export default function MusteriCreatePage() {
                 </Label>
                 <Input
                   id="ad"
-                  {...register('ad')}
+                  {...register('ad', { required: 'Müşteri adı zorunludur' })}
                   placeholder="Müşteri adı"
+                  className={errors.ad ? 'border-red-500' : ''}
                 />
                 {errors.ad && (
                   <p className="text-sm text-red-500">{errors.ad.message}</p>
@@ -167,9 +150,6 @@ export default function MusteriCreatePage() {
                   {...register('telefon')}
                   placeholder="0 (5XX) XXX XX XX"
                 />
-                {errors.telefon && (
-                  <p className="text-sm text-red-500">{errors.telefon.message}</p>
-                )}
               </div>
             </div>
 
@@ -178,8 +158,14 @@ export default function MusteriCreatePage() {
               <Input
                 id="eposta"
                 type="email"
-                {...register('eposta')}
+                {...register('eposta', {
+                  pattern: {
+                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                    message: 'Geçerli bir e-posta adresi giriniz',
+                  },
+                })}
                 placeholder="ornek@email.com"
+                className={errors.eposta ? 'border-red-500' : ''}
               />
               {errors.eposta && (
                 <p className="text-sm text-red-500">{errors.eposta.message}</p>
@@ -193,9 +179,6 @@ export default function MusteriCreatePage() {
                 {...register('adres')}
                 placeholder="Tam adres"
               />
-              {errors.adres && (
-                <p className="text-sm text-red-500">{errors.adres.message}</p>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -206,15 +189,12 @@ export default function MusteriCreatePage() {
                   {...register('vergi_no')}
                   placeholder="Vergi numarası"
                 />
-                {errors.vergi_no && (
-                  <p className="text-sm text-red-500">{errors.vergi_no.message}</p>
-                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="musteri_tipi">Müşteri Tipi</Label>
                 <Select
-                  value={musteriTipiValue}
+                  value={musteriTipiValue || ''}
                   onValueChange={(value: 'BIREYSEL' | 'KURUMSAL') =>
                     setValue('musteri_tipi', value)
                   }
@@ -234,7 +214,7 @@ export default function MusteriCreatePage() {
               <div className="space-y-2">
                 <Label htmlFor="musteri_sinifi">Sınıf</Label>
                 <Select
-                  value={musteriSinifiValue}
+                  value={musteriSinifiValue || ''}
                   onValueChange={(value: 'A' | 'B' | 'C') =>
                     setValue('musteri_sinifi', value)
                   }

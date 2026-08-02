@@ -1,9 +1,6 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
+import { useForm, SubmitHandler } from 'react-hook-form'
 import { Package, ArrowLeft, Save, MapPin, Calendar, Star, Building2 } from 'lucide-react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -32,6 +29,19 @@ interface Urun {
 interface Tedarikci {
   id: string
   ad: string
+}
+
+interface StokGirisForm {
+  urun_id: string
+  tedarikci_id?: string
+  miktar: number
+  birim: string
+  birim_fiyat: number
+  uretim_tarihi?: string
+  son_kullanma?: string
+  konum?: string
+  giris_referans_no?: string
+  kalite_notu?: number
 }
 
 interface StokGirisRequest {
@@ -67,25 +77,6 @@ interface StokResponse {
 }
 
 // ==========================================
-// YUP VALIDATION SCHEMA
-// ==========================================
-
-const schema = yup.object({
-  urun_id: yup.string().required('Ürün seçimi zorunludur'),
-  tedarikci_id: yup.string().optional(),
-  miktar: yup.number().required('Miktar zorunludur').positive('Miktar sıfırdan büyük olmalıdır'),
-  birim: yup.string().default('kg'),
-  birim_fiyat: yup.number().required('Birim fiyat zorunludur').min(0, 'Birim fiyat negatif olamaz'),
-  uretim_tarihi: yup.string().optional(),
-  son_kullanma: yup.string().optional(),
-  konum: yup.string().optional(),
-  giris_referans_no: yup.string().optional(),
-  kalite_notu: yup.number().optional().min(1, 'Kalite notu minimum 1 olmalıdır').max(10, 'Kalite notu maksimum 10 olabilir'),
-})
-
-type FormData = yup.InferType<typeof schema>
-
-// ==========================================
 // CONSTANTS
 // ==========================================
 
@@ -104,7 +95,6 @@ export function StokGirisPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // Form with react-hook-form and yup
   const {
     register,
     handleSubmit,
@@ -112,8 +102,7 @@ export function StokGirisPage() {
     watch,
     reset,
     formState: { errors },
-  } = useForm<FormData>({
-    resolver: yupResolver(schema) as any,
+  } = useForm<StokGirisForm>({
     defaultValues: {
       birim: 'kg',
       miktar: 0,
@@ -121,8 +110,8 @@ export function StokGirisPage() {
     },
   })
 
-  // Watch selected values
   const selectedBirim = watch('birim')
+  const urunId = watch('urun_id')
 
   // Fetch products
   const { data: urunlerData, isLoading: urunlerLoading } = useQuery({
@@ -133,7 +122,7 @@ export function StokGirisPage() {
       })
       return response.data
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
   // Fetch suppliers
@@ -145,7 +134,7 @@ export function StokGirisPage() {
       })
       return response.data
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
   // Stock entry mutation
@@ -171,8 +160,7 @@ export function StokGirisPage() {
     },
   })
 
-  // Form handlers
-  const onSubmit = (data: FormData) => {
+  const onSubmit: SubmitHandler<StokGirisForm> = (data) => {
     const requestData: StokGirisRequest = {
       urun_id: data.urun_id,
       tedarikci_id: data.tedarikci_id || undefined,
@@ -185,11 +173,9 @@ export function StokGirisPage() {
       giris_referans_no: data.giris_referans_no || undefined,
       kalite_notu: data.kalite_notu || undefined,
     }
-
     stokGirisMutation.mutate(requestData)
   }
 
-  // Data
   const urunler: Urun[] = urunlerData?.data || []
   const tedarikciler: Tedarikci[] = tedarikcilerData?.data || []
   const isLoading = urunlerLoading || tedarikcilerLoading || stokGirisMutation.isPending
@@ -237,6 +223,7 @@ export function StokGirisPage() {
                     Ürün <span className="text-danger">*</span>
                   </Label>
                   <Select
+                    value={urunId || ''}
                     onValueChange={(value) => setValue('urun_id', value)}
                   >
                     <SelectTrigger className={errors.urun_id ? 'border-danger' : ''}>
@@ -261,8 +248,8 @@ export function StokGirisPage() {
                       )}
                     </SelectContent>
                   </Select>
-                  {errors.urun_id && (
-                    <p className="text-xs text-danger">{errors.urun_id.message}</p>
+                  {!urunId && (
+                    <p className="text-xs text-danger">Ürün seçimi zorunludur</p>
                   )}
                 </div>
 
@@ -322,7 +309,10 @@ export function StokGirisPage() {
                       min={0}
                       step="any"
                       placeholder="0.00"
-                      {...register('miktar', { valueAsNumber: true })}
+                      {...register('miktar', {
+                        valueAsNumber: true,
+                        validate: (v) => (v && v > 0) || 'Miktar sıfırdan büyük olmalıdır',
+                      })}
                       className={errors.miktar ? 'border-danger' : ''}
                     />
                     {errors.miktar && (
@@ -362,7 +352,10 @@ export function StokGirisPage() {
                     min={0}
                     step="0.01"
                     placeholder="0.00"
-                    {...register('birim_fiyat', { valueAsNumber: true })}
+                    {...register('birim_fiyat', {
+                      valueAsNumber: true,
+                      validate: (v) => (v !== undefined && v >= 0) || 'Birim fiyat negatif olamaz',
+                    })}
                     className={errors.birim_fiyat ? 'border-danger' : ''}
                   />
                   {errors.birim_fiyat && (
@@ -453,14 +446,20 @@ export function StokGirisPage() {
                     min={1}
                     max={10}
                     placeholder="1-10 arası bir değer girin"
-                    {...register('kalite_notu', { valueAsNumber: true })}
+                    {...register('kalite_notu', {
+                      valueAsNumber: true,
+                      validate: (v) =>
+                        v === undefined || v === null ||
+                        (v >= 1 && v <= 10) ||
+                        'Kalite notu 1-10 arasında olmalıdır',
+                    })}
                     className={errors.kalite_notu ? 'border-danger' : ''}
                   />
                   {errors.kalite_notu && (
                     <p className="text-xs text-danger">{errors.kalite_notu.message}</p>
                   )}
                   <p className="text-xs text-secondary">
-                    Ürün kalitesini 1 ( düşük) ile 10 (yüksek) arasında değerlendirin
+                    Ürün kalitesini 1 (düşük) ile 10 (yüksek) arasında değerlendirin
                   </p>
                 </div>
               </CardContent>
@@ -474,7 +473,6 @@ export function StokGirisPage() {
                 <CardTitle>Özet</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Summary Info */}
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-secondary">Birim</span>
@@ -491,7 +489,6 @@ export function StokGirisPage() {
                     className="w-full"
                     size="lg"
                     disabled={isLoading}
-                    loading={stokGirisMutation.isPending}
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {stokGirisMutation.isPending ? 'Kaydediliyor...' : 'Stok Girişini Kaydet'}
@@ -526,3 +523,5 @@ export function StokGirisPage() {
     </div>
   )
 }
+
+export default StokGirisPage

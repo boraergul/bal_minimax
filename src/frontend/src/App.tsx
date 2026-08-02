@@ -27,7 +27,7 @@ import { EtiketPage } from './pages/EtiketPage'
 import { RaporlarGenisletilmisPage } from './pages/RaporlarGenisletilmisPage'
 import { StokGirisPage } from './pages/StokGirisPage'
 import { TedarikciCreatePage } from './pages/TedarikciCreatePage'
-import { MusteriCreatePage } from './pages/MusteriCreatePage'
+import MusteriCreatePage from './pages/MusteriCreatePage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
