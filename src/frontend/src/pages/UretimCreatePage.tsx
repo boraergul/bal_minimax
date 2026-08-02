@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Factory, Plus, Trash2, ArrowLeft, Calculator, Users, Zap, Clock, Package } from 'lucide-react'
