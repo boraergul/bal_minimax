@@ -97,9 +97,14 @@ const buttonVariants = cva(
   }
 )
 
+// Extract the variant and size types explicitly
+type ButtonVariant = "default" | "secondary" | "outline" | "ghost" | "destructive" | "success" | "warning" | "link"
+type ButtonSize = "xs" | "sm" | "default" | "lg" | "xl" | "icon" | "icon-sm" | "icon-lg" | "touch"
+
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant
+  size?: ButtonSize
   asChild?: boolean
   loading?: boolean
 }
@@ -111,7 +116,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         className={cn(
-          buttonVariants({ variant, size, className }),
+          buttonVariants({ variant: variant as any, size: size as any, className }),
           loading && "cursor-wait"
         )}
         ref={ref}

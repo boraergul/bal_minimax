@@ -74,6 +74,8 @@ class StokKarti(Base):
     kalite_kontroller = relationship("KaliteKontrol", back_populates="stok_karti")
     skt_islemler = relationship("SktIslem", back_populates="stok_karti")
     duzeltme_talepleri = relationship("StokDuzeltmeTalep", back_populates="stok_karti")
+    # UretimLot backref
+    uretim_lotlari = relationship("UretimLot", back_populates="stok_karti")
 
 
 class StokHareket(Base):

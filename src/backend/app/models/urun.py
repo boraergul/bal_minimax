@@ -50,6 +50,17 @@ class Urun(Base):
     stok_kartlari = relationship("StokKarti", back_populates="urun")
     ozellikler = relationship("UrunOzellik", back_populates="urun")
     hammadde = relationship("Urun", remote_side="Urun.id", foreign_keys=[hammadde_id])
+    # UrunDonusum backrefs
+    donusumler_kaynak = relationship(
+        "UrunDonusum",
+        foreign_keys="UrunDonusum.kaynak_urun_id",
+        back_populates="kaynak_urun"
+    )
+    donusumler_hedef = relationship(
+        "UrunDonusum",
+        foreign_keys="UrunDonusum.hedef_urun_id",
+        back_populates="hedef_urun"
+    )
 
 
 class UrunOzellik(Base):

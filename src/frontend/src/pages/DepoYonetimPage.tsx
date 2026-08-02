@@ -1,10 +1,27 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Warehouse, ArrowRightLeft, Plus } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Warehouse, ArrowRightLeft, Plus, Search, Truck, CheckCircle, XCircle, Clock, Package, FileText, Calendar, Phone, User } from 'lucide-react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface Depo {
   id: string
@@ -113,15 +130,7 @@ export function DepoYonetimPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-12 text-secondary">
-              <ArrowRightLeft className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">Depo Transferleri</p>
-              <p className="text-sm">Transfer listesi yakında eklenecek</p>
-            </div>
-          </CardContent>
-        </Card>
+        <TransferTab />
       )}
     </div>
   )

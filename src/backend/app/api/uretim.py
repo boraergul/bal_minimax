@@ -35,6 +35,13 @@ class UretimCreateRequest(BaseModel):
     detaylar: List[UretimDetayRequest]
 
 
+class UretimUpdateRequest(BaseModel):
+    not_text: Optional[str] = None
+    oncelik: Optional[str] = None
+    planlanan_miktar: Optional[float] = None
+    planlanan_tarih: Optional[str] = None
+
+
 class UretimDetayResponse(BaseModel):
     id: str
     mamul_urun_id: str
@@ -401,3 +408,79 @@ async def get_uretim(
         toplam_maliyet=float(uretim.toplam_maliyet) if uretim.toplam_maliyet else None,
         detaylar=[detay_to_response(d, db) for d in detaylar]
     )
+
+
+@router.put("/{uretim_id}", response_model=UretimResponse)
+async def update_uretim(
+    uretim_id: str,
+    request: UretimUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user)
+):
+    """Update production order."""
+    uretim = db.query(UretimEmri).filter(
+        UretimEmri.id == uretim_id,
+        UretimEmri.silme_tarihi.is_(None)
+    ).first()
+    
+    if not uretim:
+        raise HTTPException(status_code=404, detail="Üretim emri bulunamadı")
+    
+    if uretim.durum == "TAMAMLANDI":
+        raise HTTPException(status_code=400, detail="Tamamlanmış üretim emri güncellenemez")
+    
+    # Update fields if provided
+    if request.not_text is not None:
+        uretim.not_text = request.not_text
+    if request.oncelik is not None:
+        uretim.oncelik = request.oncelik
+    if request.planlanan_miktar is not None:
+        uretim.planlanan_miktar = request.planlanan_miktar
+    if request.planlanan_tarih is not None:
+        uretim.planlanan_tarih = request.planlanan_tarih
+    
+    db.commit()
+    db.refresh(uretim)
+    
+    detaylar = db.query(UretimDetay).filter(UretimDetay.uretim_id == uretim.id).all()
+    
+    return UretimResponse(
+        id=str(uretim.id),
+        uretim_no=uretim.uretim_no,
+        tarih=uretim.tarih,
+        durum=uretim.durum,
+        not_text=uretim.not_text,
+        oncelik=uretim.oncelik,
+        planlanan_miktar=float(uretim.planlanan_miktar) if uretim.planlanan_miktar else None,
+        gerceklesen_miktar=float(uretim.gerceklesen_miktar) if uretim.gerceklesen_miktar else None,
+        planlanan_tarih=uretim.planlanan_tarih,
+        tamamlama_tarihi=uretim.tamamlama_tarihi,
+        toplam_maliyet=float(uretim.toplam_maliyet) if uretim.toplam_maliyet else None,
+        detaylar=[detay_to_response(d, db) for d in detaylar]
+    )
+
+
+@router.delete("/{uretim_id}")
+async def delete_uretim(
+    uretim_id: str,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user)
+):
+    """Soft delete production order."""
+    uretim = db.query(UretimEmri).filter(
+        UretimEmri.id == uretim_id,
+        UretimEmri.silme_tarihi.is_(None)
+    ).first()
+    
+    if not uretim:
+        raise HTTPException(status_code=404, detail="Üretim emri bulunamadı")
+    
+    if uretim.durum == "TAMAMLANDI":
+        raise HTTPException(status_code=400, detail="Tamamlanmış üretim emri silinemez")
+    
+    # Soft delete
+    uretim.silme_tarihi = datetime.utcnow().isoformat()
+    
+    db.commit()
+    
+    return {"message": "Üretim emri silindi"}

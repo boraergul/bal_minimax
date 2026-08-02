@@ -10,6 +10,7 @@ from app.api import (
     auth, urunler, tedarikciler, musteriler, stok, uretim, satis, raporlar,
     kalite_kontrol, skt, stok_duzeltme, birim, bildirim, depo,
     toplu_islem, maliyet, iade, ozellikler, etiket, raporlar_genisletilmis,
+    ayarlar,
 )
 
 # Create FastAPI application
@@ -51,6 +52,7 @@ app.include_router(maliyet.router, prefix=f"{settings.API_V1_PREFIX}/uretim/mali
 app.include_router(iade.router, prefix=f"{settings.API_V1_PREFIX}/satis", tags=["Satış İade"])
 app.include_router(ozellikler.router, prefix=f"{settings.API_V1_PREFIX}/ozellikler", tags=["Ürün Özellikleri"])
 app.include_router(etiket.router, prefix=f"{settings.API_V1_PREFIX}/etiket", tags=["Barkod/Etiket"])
+app.include_router(ayarlar.router, prefix=f"{settings.API_V1_PREFIX}/ayarlar", tags=["Sistem Ayarları"])
 
 
 @app.get("/")

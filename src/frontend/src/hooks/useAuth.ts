@@ -850,3 +850,126 @@ export function useTopluIslemler(params?: { sayfa?: number; sayfa_boyutu?: numbe
     },
   })
 }
+
+// Etiket hooks
+export function useEtiketSablonlar() {
+  return useQuery({
+    queryKey: ['etiket-sablonlar'],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/etiket/sablonlar`)
+      return response.data
+    },
+  })
+}
+
+export function useEtiketMutations() {
+  const queryClient = useQueryClient()
+  
+  const createSablon = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post(`${API_BASE}/etiket/sablonlar`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etiket-sablonlar'] })
+    },
+  })
+  
+  const updateSablon = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const response = await api.put(`${API_BASE}/etiket/sablonlar/${id}`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etiket-sablonlar'] })
+    },
+  })
+  
+  const deleteSablon = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`${API_BASE}/etiket/sablonlar/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etiket-sablonlar'] })
+    },
+  })
+  
+  return { createSablon, updateSablon, deleteSablon }
+}
+
+// Depo Blok hooks
+export function useDepoBloklar(depoId: string) {
+  return useQuery({
+    queryKey: ['depo-bloklar', depoId],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/depo/${depoId}/bloklar`)
+      return response.data
+    },
+    enabled: !!depoId,
+  })
+}
+
+export function useDepoBlokMutations(depoId: string) {
+  const queryClient = useQueryClient()
+  
+  const createBlok = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post(`${API_BASE}/depo/${depoId}/bloklar`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['depo-bloklar', depoId] })
+    },
+  })
+  
+  const updateBlok = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const response = await api.put(`${API_BASE}/depo/bloklar/${id}`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['depo-bloklar', depoId] })
+    },
+  })
+  
+  return { createBlok, updateBlok }
+}
+
+// Depo Konum hooks
+export function useDepoKonumlar(blokId: string) {
+  return useQuery({
+    queryKey: ['depo-konumlar', blokId],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/depo/konumlar`, { params: { blok_id: blokId } })
+      return response.data
+    },
+    enabled: !!blokId,
+  })
+}
+
+// Sistem Ayarlar hooks
+export function useSistemAyarlar() {
+  return useQuery({
+    queryKey: ['sistem-ayarlar'],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/ayarlar`)
+      return response.data
+    },
+  })
+}
+
+export function useSistemAyarlarMutations() {
+  const queryClient = useQueryClient()
+  
+  const updateAyar = useMutation({
+    mutationFn: async ({ key, ...data }: any) => {
+      const response = await api.put(`${API_BASE}/ayarlar/${key}`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sistem-ayarlar'] })
+    },
+  })
+  
+  return { updateAyar }
+}

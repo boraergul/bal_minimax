@@ -68,6 +68,8 @@ class UretimEmri(Base):
     enerji_kayitlari = relationship("UretimEnerji", back_populates="uretim_emri")
     bakim_kayitlari = relationship("UretimBakim", back_populates="uretim_emri")
     genel_gider_kayitlari = relationship("UretimGenelGider", back_populates="uretim_emri")
+    # UretimLot backref
+    uretim_lotlari = relationship("UretimLot", back_populates="uretim_emri")
 
 
 class UretimDetay(Base):
