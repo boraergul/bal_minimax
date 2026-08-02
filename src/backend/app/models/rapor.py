@@ -77,6 +77,7 @@ class RaporCektirme(Base):
 
     # Metadata
     olusturma_tarihi = Column(String(50), nullable=False)
+    guncelleme_tarihi = Column(String(50), nullable=False)
     olusturan_kullanici_id = Column(UUID(as_uuid=True), ForeignKey("kullanicilar.id"), nullable=False)
 
     # Relationships
