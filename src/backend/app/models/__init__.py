@@ -23,11 +23,6 @@ from app.models.izlenebilirlik import GidaIzlenebilirlikLog
 # New model imports (002_add_missing_tables migration)
 from app.models.urun_donusum import UrunDonusum
 from app.models.uretim_lot import UretimLot
-from app.models.gida_izlenebilirlik_log import GidaIzlenebilirlikLog as GidaIzlenebilirlikLogNew
-from app.models.ozellik_tanimlari import OzellikTanim
-from app.models.rapor_tanimlari import RaporTanim
-from app.models.rapor_cektirme import RaporCektirme as RaporCektirmeNew
-from app.models.rapor_schedule import RaporSchedule as RaporScheduleNew
 
 __all__ = [
     # Existing
@@ -84,9 +79,4 @@ __all__ = [
     # New models from 002_add_missing_tables
     "UrunDonusum",
     "UretimLot",
-    "GidaIzlenebilirlikLogNew",
-    "OzellikTanim",
-    "RaporTanim",
-    "RaporCektirmeNew",
-    "RaporScheduleNew",
 ]

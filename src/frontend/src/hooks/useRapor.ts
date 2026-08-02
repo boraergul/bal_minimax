@@ -3,28 +3,26 @@ import api from '@/lib/api'
 
 const API_BASE = '/api/v1/raporlar'
 
-// Types
+// Types — aligned with backend RaporTanimi, RaporCektirme, RaporSchedule models
 export interface RaporTanim {
   id: string
-  ad: string
-  rapor_tipi: 'standart' | 'ozel' | 'grafik' | 'pivot'
-  kategori: string
-  aciklama?: string
-  sorgu_sql?: string
+  rapor_adi: string
+  rapor_turu: string
+  sorgu_template: string
   parametreler: RaporParametre[]
+  grafik_turu?: string
   aktif: boolean
-  varsayilan: boolean
+  rol_bazli_erisim: string[]
   olusturma_tarihi: string
   guncelleme_tarihi: string
+  olusturan_kullanici_id: string
 }
 
 export interface RaporParametre {
-  ad: string
-  etiket: string
-  tur: 'string' | 'number' | 'date' | 'date_range' | 'select' | 'multi_select'
-  zorunlu: boolean
-  varsayilan_deger?: unknown
-  secenekler?: { value: string; label: string }[]
+  name: string
+  type: string
+  required: boolean
+  default?: unknown
 }
 
 export interface RaporCalistirRequest {
@@ -45,49 +43,52 @@ export interface RaporSonuc {
 
 export interface RaporCektirme {
   id: string
-  tanim_id: string
+  rapor_id: string
   rapor_adi: string
   cektirme_zamani: string
   cektiren_kullanici: string
   parametreler?: Record<string, unknown>
   durum: 'basarili' | 'basarisiz'
+  cikti_format?: string
+  cikti_url?: string
 }
 
 export interface RaporSchedule {
   id: string
-  tanim_id: string
+  rapor_id: string
   rapor_adi: string
-  schedule_tipi: 'gunluk' | 'haftalik' | 'aylik'
+  schedule_tipi: 'DAILY' | 'WEEKLY' | 'MONTHLY'
   schedule_time: string
-  schedule_days?: number[]
-  alici_eposta?: string[]
+  schedule_hafta_gun?: string
+  schedule_ay_gun?: number
   aktif: boolean
-  son_calistirma?: string
-  son_durum?: 'basarili' | 'basarisiz'
+  son_calisma?: string
+  son_sonuc?: string
+  alicilar: { type: string; value: string }[]
 }
 
 export interface RaporTanimCreateRequest {
-  ad: string
-  rapor_tipi: RaporTanim['rapor_tipi']
-  kategori: string
-  aciklama?: string
-  sorgu_sql?: string
+  rapor_adi: string
+  rapor_turu: string
+  sorgu_template: string
   parametreler?: RaporParametre[]
+  grafik_turu?: string
   aktif?: boolean
-  varsayilan?: boolean
+  rol_bazli_erisim?: string[]
 }
 
 export interface RaporScheduleCreateRequest {
-  tanim_id: string
+  rapor_id: string
   schedule_tipi: RaporSchedule['schedule_tipi']
   schedule_time: string
-  schedule_days?: number[]
-  alici_eposta?: string[]
+  schedule_hafta_gun?: string
+  schedule_ay_gun?: number
   aktif?: boolean
+  alicilar?: { type: string; value: string }[]
 }
 
 // Query hooks
-export function useRaporTanimlari(params?: { kategori?: string; rapor_tipi?: string; aktif?: boolean }) {
+export function useRaporTanimlari(params?: { kategori?: string; rapor_turu?: string; aktif?: boolean }) {
   return useQuery({
     queryKey: ['rapor-tanimlari', params],
     queryFn: async () => {

@@ -638,8 +638,176 @@ export interface StokYaslandirma {
 export interface FireAnaliz {
   uretim_id: string
   uretim_no: string
+  tarih?: string
   urun_ad: string
+  planlanan_miktar?: number
+  gerceklesen_miktar?: number
   planlanan_fire: number
   gerceklesen_fire: number
+  fire_miktari?: number
   fire_orani: number
+  beklenen_fire_orani?: number
+}
+
+// İzlenebilirlik Types
+export interface IzlenebilirlikVeri {
+  lot_no: string
+  stok_tipi: 'HAMMADDE' | 'MAMUL'
+  urun_ad: string
+  miktar: number
+  birim: string
+  giris_tarihi: string
+  son_kullanma: string | null
+  tedarikci?: {
+    ad: string
+    vergi_no: string
+    yetkili_kisi: string
+    telefon: string
+    adres: string
+  }
+  uretim?: {
+    uretim_no: string
+    tarih: string
+    personel: string
+    mamul_lot_no: string
+  }
+  satislar?: {
+    satis_no: string
+    musteri_ad: string
+    tarih: string
+    miktar: number
+    birim: string
+  }[]
+  gida_zinciri?: {
+    hayvansal_kaynak: boolean
+    gdo: boolean
+    alerjenler: string[]
+    muamekki_kimlik: string
+  }
+}
+
+// Maliyet Types
+export interface MaliyetOzet {
+  uretim_id: string
+  uretim_no: string
+  tarih?: string
+  urun_ad: string
+  toplam_hammadde: number
+  toplam_iscilik: number
+  toplam_enerji: number
+  toplam_bakim: number
+  toplam_genel_gider: number
+  toplam_maliyet: number
+  birim_maliyet?: number | null
+  birim: string
+}
+
+export interface MaliyetDetay {
+  iscilik: IscilikKayit[]
+  enerji: EnerjiKayit[]
+  bakim: BakimKayit[]
+  genel_gider: GenelGiderKayit[]
+}
+
+export interface IscilikKayit {
+  id: string
+  personel_ad: string
+  saat: number
+  birim_ucret: number
+  tutar: number
+  tarih: string
+  aciklama?: string
+}
+
+export interface EnerjiKayit {
+  id: string
+  enerji_tipi: 'ELEKTRIK' | 'DOGALGAZ' | 'SU'
+  tuketim_miktari: number
+  birim_fiyat: number
+  tutar: number
+  tarih: string
+  aciklama?: string
+}
+
+export interface BakimKayit {
+  id: string
+  bakim_tipi: string
+  bakim_aciklamasi: string
+  tutar: number
+  tarih: string
+}
+
+export interface GenelGiderKayit {
+  id: string
+  gider_tipi: string
+  aciklama: string
+  tutar: number
+  tarih: string
+}
+
+// Özellik Types
+export interface UrunOzellik {
+  id: string
+  urun_id: string | null
+  kategori: string
+  alan_adi: string
+  goruntu_adi: string
+  tip: 'METIN' | 'SAYI' | 'ENUM' | 'BOOLEAN' | 'TARIH'
+  zorunlu: boolean
+  etikette_goster: boolean
+  etikette_zorunlu: boolean
+  siralama: number
+  varsayilan_deger: string | null
+  enum_degerleri: string[]
+  birim?: string
+  min_deger?: number | null
+  max_deger?: number | null
+  aktif: boolean
+  olusturma_tarihi: string
+  silme_tarihi: string | null
+}
+
+// Rapor Types
+export interface StokDegerItem {
+  urun_id: string
+  urun_ad: string
+  kategori: string
+  toplam_miktar: number
+  birim: string
+  birim_fiyat: number
+  toplam_deger: number
+}
+
+export interface YaslandirmaItem {
+  bucket: string
+  bucket_label: string
+  lot_sayisi: number
+  toplam_miktar: number
+  oran: number
+}
+
+export interface KaliteOzetItem {
+  ay: string
+  yil: number
+  kabul: number
+  ret: number
+  kismen_kabul: number
+  toplam: number
+  kabul_orani: number
+}
+
+export interface DepoDolulukItem {
+  depo_id: string
+  depo_ad: string
+  depo_kod: string
+  kapasite: number
+  dolu_alan: number
+  doluluk_orani: number
+  bloklar?: {
+    blok_id: string
+    blok_ad: string
+    kapasite: number
+    dolu_alan: number
+    doluluk_orani: number
+  }[]
 }

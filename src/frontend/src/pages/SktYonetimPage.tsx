@@ -12,6 +12,12 @@ import {
   Filter,
   Eye,
   X,
+  Check,
+  XCircle,
+  Settings,
+  Lightbulb,
+  Package,
+  TrendingDown,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,7 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { format, parseISO, isValid } from 'date-fns'
+import { format, parseISO, isValid, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
 // ============ Types ============
@@ -88,6 +94,9 @@ export interface SktIslem {
   indirim_orani: number | null
   gerekce: string | null
   not_text: string | null
+  hedef_bolge?: string
+  yeni_fiyat?: number
+  imha_yontemi?: string
 }
 
 export interface SktIslemCreateRequest {
@@ -97,6 +106,33 @@ export interface SktIslemCreateRequest {
   indirim_orani?: number
   gerekce: string
   not_text?: string
+  hedef_bolge?: string
+  yeni_fiyat?: number
+  imha_yontemi?: string
+}
+
+export interface LotOnerisi {
+  lot_no: string
+  stok_id: string
+  urun_ad: string
+  miktar: number
+  birim: string
+  kalan_gun: number
+  skt: string
+  konum: string | null
+  strateji: 'FEFO' | 'FIFO'
+  oncelik: number
+}
+
+export interface SktEsik {
+  risk_esigi_gun: number
+  kritik_esigi_gun: number
+  urun_esikleri: {
+    urun_id: string
+    urun_ad: string
+    risk_esigi: number
+    kritik_esigi: number
+  }[]
 }
 
 // ============ Helper Functions ============
@@ -112,31 +148,53 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
+function formatDateShort(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  try {
+    const date = parseISO(dateStr)
+    if (!isValid(date)) return '-'
+    return format(date, 'dd.MM.yyyy')
+  } catch {
+    return '-'
+  }
+}
+
 function getKalanGunLabel(kalanGun: number | null): { text: string; className: string } {
   if (kalanGun === null) return { text: 'SKT Yok', className: 'text-secondary' }
   if (kalanGun < 0) return { text: `${Math.abs(kalanGun)} gün geçmiş`, className: 'text-red-600 font-semibold' }
   if (kalanGun === 0) return { text: 'Bugün son', className: 'text-red-600 font-semibold' }
+  if (kalanGun <= 7) return { text: `${kalanGun} gün kaldı`, className: 'text-red-600 font-semibold' }
   if (kalanGun <= 30) return { text: `${kalanGun} gün kaldı`, className: 'text-orange-600 font-medium' }
+  if (kalanGun <= 60) return { text: `${kalanGun} gün kaldı`, className: 'text-yellow-600' }
   return { text: `${kalanGun} gün kaldı`, className: 'text-green-600' }
 }
 
-function getSktDurumBadge(sktDurum: SktLot['skt_durum']): { label: string; variant: 'destructive' | 'secondary' | 'default' } {
+function getSktDurumBadge(sktDurum: SktLot['skt_durum']): { label: string; variant: 'destructive' | 'secondary' | 'default'; className: string } {
   switch (sktDurum) {
     case 'SON_KULLANIM_GECDI':
-      return { label: 'Süresi Dolmuş', variant: 'destructive' }
+      return { label: 'Süresi Dolmuş', variant: 'destructive', className: 'bg-red-100 text-red-800' }
     case 'SON_KULLANIM_RISKLI':
-      return { label: 'Riskli', variant: 'default' }
+      return { label: 'Riskli', variant: 'default', className: 'bg-orange-100 text-orange-800' }
     case 'NORMAL':
-      return { label: 'Normal', variant: 'secondary' }
+      return { label: 'Normal', variant: 'secondary', className: 'bg-green-100 text-green-800' }
     case 'SKT_YOK':
     default:
-      return { label: 'SKT Yok', variant: 'secondary' }
+      return { label: 'SKT Yok', variant: 'secondary', className: 'bg-gray-100 text-gray-800' }
   }
+}
+
+function getRowColor(kalanGun: number | null, esik: number): string {
+  if (kalanGun === null) return ''
+  if (kalanGun < 0) return 'bg-red-50'
+  if (kalanGun < 7) return 'bg-red-50'
+  if (kalanGun < 30) return 'bg-orange-50'
+  if (kalanGun < 60) return 'bg-yellow-50'
+  return ''
 }
 
 // ============ Hooks ============
 
-function useSktRapor(params?: { durum_filter?: string }) {
+function useSktRapor(params?: { durum_filter?: string; urun_id?: string; depo_id?: string; baslangic?: string; bitis?: string }) {
   return useQuery<SktRapor>({
     queryKey: ['skt-rapor', params],
     queryFn: async () => {
@@ -146,11 +204,34 @@ function useSktRapor(params?: { durum_filter?: string }) {
   })
 }
 
-function useSktIslemler(params?: { sayfa?: number; sayfa_boyutu?: number }) {
+function useSktLotOnerisi(urunId: string, miktar: number, stokTipi?: string) {
+  return useQuery<{ data: LotOnerisi[] }>({
+    queryKey: ['skt-lot-onerisi', urunId, miktar, stokTipi],
+    queryFn: async () => {
+      const response = await api.get('/stok/skt/lot-onerisi', {
+        params: { urun_id: urunId, miktar, stok_tipi: stokTipi },
+      })
+      return response.data
+    },
+    enabled: !!urunId && !!miktar,
+  })
+}
+
+function useSktIslemler(params?: { sayfa?: number; sayfa_boyutu?: number; durum?: string }) {
   return useQuery<{ data: SktIslem[]; toplam: number }>({
     queryKey: ['skt-islemler', params],
     queryFn: async () => {
       const response = await api.get('/stok/skt/islemler', { params })
+      return response.data
+    },
+  })
+}
+
+function useSktEsik() {
+  return useQuery<SktEsik>({
+    queryKey: ['skt-esik'],
+    queryFn: async () => {
+      const response = await api.get('/stok/skt/esik')
       return response.data
     },
   })
@@ -170,7 +251,39 @@ function useSktMutations() {
     },
   })
 
-  return { createSktIslem }
+  const approveIslem = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/stok/skt/islemler/${id}/onayla`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skt-rapor'] })
+      queryClient.invalidateQueries({ queryKey: ['skt-islemler'] })
+    },
+  })
+
+  const rejectIslem = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.post(`/stok/skt/islemler/${id}/reddet`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skt-islemler'] })
+    },
+  })
+
+  const updateEsik = useMutation({
+    mutationFn: async (data: { risk_esigi_gun?: number; kritik_esigi_gun?: number }) => {
+      const response = await api.put('/stok/skt/esik', data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skt-esik'] })
+      queryClient.invalidateQueries({ queryKey: ['skt-rapor'] })
+    },
+  })
+
+  return { createSktIslem, approveIslem, rejectIslem, updateEsik }
 }
 
 // ============ Sub-Components ============
@@ -214,6 +327,8 @@ function IslemDialog({ open, onOpenChange, lot, onSubmit, isLoading }: IslemDial
   const [islemTuru, setIslemTuru] = useState<SktIslemCreateRequest['islem_turu'] | ''>('')
   const [islemMiktari, setIslemMiktari] = useState<number>(0)
   const [indirimOrani, setIndirimOrani] = useState<number>(0)
+  const [hedefBolge, setHedefBolge] = useState<string>('')
+  const [imhaYontemi, setImhaYontemi] = useState<string>('')
   const [gereke, setGereke] = useState<string>('')
   const [notText, setNotText] = useState<string>('')
 
@@ -225,9 +340,20 @@ function IslemDialog({ open, onOpenChange, lot, onSubmit, isLoading }: IslemDial
       islem_turu: islemTuru,
       islem_miktari: islemMiktari || lot.miktar,
       indirim_orani: islemTuru === 'INDIRIM' ? indirimOrani : undefined,
+      hedef_bolge: islemTuru === 'DEVIR' ? hedefBolge : undefined,
+      imha_yontemi: islemTuru === 'IMHA' ? imhaYontemi : undefined,
       gerekce: gereke,
       not_text: notText || undefined,
     })
+
+    // Reset form
+    setIslemTuru('')
+    setIslemMiktari(0)
+    setIndirimOrani(0)
+    setHedefBolge('')
+    setImhaYontemi('')
+    setGereke('')
+    setNotText('')
   }
 
   return (
@@ -250,7 +376,7 @@ function IslemDialog({ open, onOpenChange, lot, onSubmit, isLoading }: IslemDial
               </div>
               <div>
                 <p className="text-xs text-secondary">SKT</p>
-                <p className="font-medium">{formatDate(lot.son_kullanma)}</p>
+                <p className="font-medium">{formatDateShort(lot.son_kullanma)}</p>
               </div>
               <div>
                 <p className="text-xs text-secondary">Kalan Gün</p>
@@ -260,7 +386,7 @@ function IslemDialog({ open, onOpenChange, lot, onSubmit, isLoading }: IslemDial
               </div>
               <div>
                 <p className="text-xs text-secondary">Durum</p>
-                <Badge variant={getSktDurumBadge(lot.skt_durum).variant}>
+                <Badge className={getSktDurumBadge(lot.skt_durum).className}>
                   {getSktDurumBadge(lot.skt_durum).label}
                 </Badge>
               </div>
@@ -341,6 +467,37 @@ function IslemDialog({ open, onOpenChange, lot, onSubmit, isLoading }: IslemDial
                   onChange={(e) => setIndirimOrani(parseFloat(e.target.value) || 0)}
                   placeholder="Örn: 50"
                 />
+              </div>
+            )}
+
+            {/* Target Area (only for DEVIR) */}
+            {islemTuru === 'DEVIR' && (
+              <div className="space-y-2">
+                <Label htmlFor="hedef-bolge">Hedef Bölge</Label>
+                <Input
+                  id="hedef-bolge"
+                  value={hedefBolge}
+                  onChange={(e) => setHedefBolge(e.target.value)}
+                  placeholder="Örn: İndirimli Ürünler Rafı"
+                />
+              </div>
+            )}
+
+            {/* Destruction Method (only for IMHA) */}
+            {islemTuru === 'IMHA' && (
+              <div className="space-y-2">
+                <Label htmlFor="imha-yontemi">İmha Yöntemi</Label>
+                <Select value={imhaYontemi} onValueChange={setImhaYontemi}>
+                  <SelectTrigger id="imha-yontemi">
+                    <SelectValue placeholder="İmha yöntemi seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GERI_DONUSUM">Geri Dönüşüm</SelectItem>
+                    <SelectItem value="YAKMA">Yakma</SelectItem>
+                    <SelectItem value="ZORUNLU_DEPOLAMA">Zorunlu Depolama</SelectItem>
+                    <SelectItem value="DIGER">Diğer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -425,7 +582,7 @@ function LotDetailDialog({ open, onOpenChange, lot }: LotDetailDialogProps) {
                   {getKalanGunLabel(lot.kalan_gun).text}
                 </p>
               </div>
-              <Badge variant={getSktDurumBadge(lot.skt_durum).variant} className="text-sm">
+              <Badge className={getSktDurumBadge(lot.skt_durum).className}>
                 {getSktDurumBadge(lot.skt_durum).label}
               </Badge>
             </div>
@@ -497,44 +654,218 @@ function LotDetailDialog({ open, onOpenChange, lot }: LotDetailDialogProps) {
   )
 }
 
+interface LotOnerisiDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  urunId: string
+  miktar: number
+  stokTipi?: string
+}
+
+function LotOnerisiDialog({ open, onOpenChange, urunId, miktar, stokTipi }: LotOnerisiDialogProps) {
+  const { data: oneriler, isLoading } = useSktLotOnerisi(urunId, miktar, stokTipi)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[700px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-yellow-500" />
+            Lot Önerisi
+          </DialogTitle>
+          <DialogDescription>
+            {miktar} birim için FEFO/FIFO stratejisine göre önerilen lotlar
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          ) : !oneriler?.data?.length ? (
+            <div className="text-center py-8 text-secondary">
+              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Bu ürün için uygun lot bulunamadı</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {oneriler.data.map((oneri, index) => (
+                <div
+                  key={`${oneri.lot_no}-${index}`}
+                  className={cn(
+                    'p-4 rounded-lg border',
+                    oneri.strateji === 'FEFO' ? 'bg-blue-50 border-blue-200' : 'bg-purple-50 border-purple-200'
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center text-white font-bold',
+                        oneri.strateji === 'FEFO' ? 'bg-blue-500' : 'bg-purple-500'
+                      )}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-mono font-medium">{oneri.lot_no}</p>
+                        <p className="text-sm text-secondary">
+                          {oneri.miktar} {oneri.birim} • {oneri.konum || 'Konum belirtilmemiş'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge className={oneri.strateji === 'FEFO' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}>
+                        {oneri.strateji}
+                      </Badge>
+                      <p className={cn('text-sm mt-1', getKalanGunLabel(oneri.kalan_gun).className)}>
+                        {getKalanGunLabel(oneri.kalan_gun).text}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Kapat
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface EsikAyarlariDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  esik: SktEsik | undefined
+  onUpdate: (data: { risk_esigi_gun?: number; kritik_esigi_gun?: number }) => void
+  isLoading: boolean
+}
+
+function EsikAyarlariDialog({ open, onOpenChange, esik, onUpdate, isLoading }: EsikAyarlariDialogProps) {
+  const [riskEsigi, setRiskEsigi] = useState<number>(esik?.risk_esigi_gun || 30)
+  const [kritikEsigi, setKritikEsigi] = useState<number>(esik?.kritik_esigi_gun || 7)
+
+  const handleSave = () => {
+    onUpdate({
+      risk_esigi_gun: riskEsigi,
+      kritik_esigi_gun: kritikEsigi,
+    })
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Eşik Ayarları
+          </DialogTitle>
+          <DialogDescription>
+            SKT uyarı eşiklerini yapılandırın
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
+            <div className="space-y-2">
+              <Label htmlFor="risk-esigi" className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                Risk Eşiği (gün)
+              </Label>
+              <Input
+                id="risk-esigi"
+                type="number"
+                min={1}
+                max={365}
+                value={riskEsigi}
+                onChange={(e) => setRiskEsigi(parseInt(e.target.value) || 30)}
+              />
+              <p className="text-xs text-secondary">
+                Bu gün sayısından az SKT kalan lotlar "Riskli" olarak işaretlenir
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+            <div className="space-y-2">
+              <Label htmlFor="kritik-esigi" className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                Kritik Eşik (gün)
+              </Label>
+              <Input
+                id="kritik-esigi"
+                type="number"
+                min={1}
+                max={365}
+                value={kritikEsigi}
+                onChange={(e) => setKritikEsigi(parseInt(e.target.value) || 7)}
+              />
+              <p className="text-xs text-secondary">
+                Bu gün sayısından az SKT kalan lotlar "Kritik" olarak işaretlenir
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            İptal
+          </Button>
+          <Button onClick={handleSave} disabled={isLoading} loading={isLoading}>
+            Kaydet
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ============ Main Component ============
 
 export function SktYonetimPage() {
   const [arama, setArama] = useState('')
   const [durumFilter, setDurumFilter] = useState<string>('TUMU')
-  const [tab, setTab] = useState<'lotlar' | 'islemler'>('lotlar')
+  const [tab, setTab] = useState<'rapor' | 'islemler' | 'esikler'>('rapor')
   const [selectedLot, setSelectedLot] = useState<SktLot | null>(null)
   const [islemDialogOpen, setIslemDialogOpen] = useState(false)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [onerisiDialogOpen, setOnerisiDialogOpen] = useState(false)
+  const [esikDialogOpen, setEsikDialogOpen] = useState(false)
+  const [onerisiUrunId, setOnerisiUrunId] = useState<string>('')
+  const [onerisiMiktar, setOnerisiMiktar] = useState<number>(0)
+  const [onerisiStokTipi, setOnerisiStokTipi] = useState<string>('')
+
+  // Filters
+  const [urunFilter, setUrunFilter] = useState<string>('')
+  const [depoFilter, setDepoFilter] = useState<string>('')
+  const [tarihBaslangic, setTarihBaslangic] = useState<string>('')
+  const [tarihBitis, setTarihBitis] = useState<string>('')
 
   // Queries
-  const { data: sktRapor, isLoading: raporLoading } = useSktRapor()
-  const { data: islemlerData, isLoading: islemlerLoading } = useSktIslemler()
-  const { createSktIslem } = useSktMutations()
+  const { data: sktRapor, isLoading: raporLoading } = useSktRapor({
+    durum_filter: durumFilter !== 'TUMU' ? durumFilter : undefined,
+    urun_id: urunFilter || undefined,
+    depo_id: depoFilter || undefined,
+    baslangic: tarihBaslangic || undefined,
+    bitis: tarihBitis || undefined,
+  })
+  const { data: islemlerData, isLoading: islemlerLoading } = useSktIslemler({
+    durum: 'BEKLIYOR',
+  })
+  const { data: esikData, isLoading: esikLoading } = useSktEsik()
+  const { createSktIslem, approveIslem, rejectIslem, updateEsik } = useSktMutations()
 
   // Filtered lots
   const filteredLots = useMemo(() => {
     if (!sktRapor?.data) return []
 
     let lots = [...sktRapor.data]
-
-    // Apply status filter
-    if (durumFilter !== 'TUMU') {
-      lots = lots.filter((lot) => {
-        switch (durumFilter) {
-          case 'GECMIS':
-            return lot.skt_durum === 'SON_KULLANIM_GECDI'
-          case 'RISKLI':
-            return lot.skt_durum === 'SON_KULLANIM_RISKLI'
-          case 'NORMAL':
-            return lot.skt_durum === 'NORMAL'
-          case 'SKTSIZ':
-            return lot.skt_durum === 'SKT_YOK'
-          default:
-            return true
-        }
-      })
-    }
 
     // Apply search filter
     if (arama) {
@@ -579,10 +910,29 @@ export function SktYonetimPage() {
     setDetailDialogOpen(true)
   }
 
+  const handleOpenOnerisi = (lot?: SktLot) => {
+    setOnerisiUrunId(lot?.urun_id || '')
+    setOnerisiMiktar(lot?.miktar || 0)
+    setOnerisiStokTipi(lot?.stok_tipi || '')
+    setOnerisiDialogOpen(true)
+  }
+
   const handleCreateIslem = async (data: SktIslemCreateRequest) => {
     await createSktIslem.mutateAsync(data)
     setIslemDialogOpen(false)
     setSelectedLot(null)
+  }
+
+  const handleApprove = async (id: string) => {
+    await approveIslem.mutateAsync(id)
+  }
+
+  const handleReject = async (id: string) => {
+    await rejectIslem.mutateAsync(id)
+  }
+
+  const handleUpdateEsik = (data: { risk_esigi_gun?: number; kritik_esigi_gun?: number }) => {
+    updateEsik.mutate(data)
   }
 
   const getIslemTuruIcon = (turu: SktIslem['islem_turu']) => {
@@ -605,7 +955,7 @@ export function SktYonetimPage() {
   const getIslemDurumBadge = (durum: SktIslem['talep_durumu']) => {
     switch (durum) {
       case 'BEKLIYOR':
-        return <Badge variant="default">Bekliyor</Badge>
+        return <Badge variant="default" className="bg-yellow-100 text-yellow-800">Bekliyor</Badge>
       case 'ONAYLANDI':
         return <Badge className="bg-blue-100 text-blue-800">Onaylandı</Badge>
       case 'REDEDILDI':
@@ -616,6 +966,18 @@ export function SktYonetimPage() {
         return <Badge variant="secondary">{durum}</Badge>
     }
   }
+
+  // Get unique products for filter
+  const uniqueUrunler = useMemo(() => {
+    if (!sktRapor?.data) return []
+    const map = new Map<string, string>()
+    sktRapor.data.forEach((lot) => {
+      if (!map.has(lot.urun_id)) {
+        map.set(lot.urun_id, lot.urun_ad)
+      }
+    })
+    return Array.from(map.entries()).map(([id, ad]) => ({ id, ad }))
+  }, [sktRapor?.data])
 
   return (
     <div className="space-y-6">
@@ -630,16 +992,30 @@ export function SktYonetimPage() {
             Son kullanma tarihi takibi ve lot yönetimi
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-secondary">
-          <AlertTriangle className="h-4 w-4 text-orange-500" />
-          <span>Uyarı eşiği: {uyariEsigi} gün</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-secondary">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            <span>Risk eşiği: {uyariEsigi} gün</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setEsikDialogOpen(true)}>
+            <Settings className="h-4 w-4 mr-2" />
+            Eşik Ayarları
+          </Button>
         </div>
       </div>
 
       {/* Statistics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Geçmiş Lot"
+          title="Toplam Lot"
+          value={istatistikler?.toplam_lot || 0}
+          subtitle={`₺${istatistikler?.toplam_deger?.toFixed(0) || 0}`}
+          icon={Package}
+          iconColor="text-blue-600"
+          iconBg="bg-blue-100"
+        />
+        <StatsCard
+          title="Kritik (SKT < 7)"
           value={istatistikler?.gecmis_lot || 0}
           subtitle={`₺${istatistikler?.gecmis_deger?.toFixed(0) || 0}`}
           icon={AlertTriangle}
@@ -648,27 +1024,20 @@ export function SktYonetimPage() {
           alert={!!(istatistikler?.gecmis_lot && istatistikler.gecmis_lot > 0)}
         />
         <StatsCard
-          title="Riskli Lot"
+          title="Riskli (SKT < 30)"
           value={istatistikler?.riskli_lot || 0}
           subtitle={`₺${istatistikler?.riskli_deger?.toFixed(0) || 0}`}
-          icon={CalendarClock}
+          icon={TrendingDown}
           iconColor="text-orange-600"
           iconBg="bg-orange-100"
           alert={!!(istatistikler?.riskli_lot && istatistikler.riskli_lot > 0)}
         />
         <StatsCard
-          title="Normal Lot"
-          value={istatistikler?.normal_lot || 0}
-          icon={Filter}
-          iconColor="text-green-600"
-          iconBg="bg-green-100"
-        />
-        <StatsCard
-          title="SKT'siz Lot"
-          value={istatistikler?.sktsiz_lot || 0}
-          icon={X}
-          iconColor="text-gray-600"
-          iconBg="bg-gray-100"
+          title="Bekleyen İşlem"
+          value={islemlerData?.toplam || 0}
+          icon={Settings}
+          iconColor="text-yellow-600"
+          iconBg="bg-yellow-100"
         />
       </div>
 
@@ -677,13 +1046,13 @@ export function SktYonetimPage() {
         <button
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-            tab === 'lotlar'
+            tab === 'rapor'
               ? 'border-primary text-primary'
               : 'border-transparent text-secondary hover:text-foreground'
           )}
-          onClick={() => setTab('lotlar')}
+          onClick={() => setTab('rapor')}
         >
-          Lot Listesi ({filteredLots.length})
+          SKT Raporu
         </button>
         <button
           className={cn(
@@ -694,16 +1063,28 @@ export function SktYonetimPage() {
           )}
           onClick={() => setTab('islemler')}
         >
-          İşlemler ({islemlerData?.toplam || 0})
+          İşlemler
+        </button>
+        <button
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+            tab === 'esikler'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-secondary hover:text-foreground'
+          )}
+          onClick={() => setTab('esikler')}
+        >
+          Eşik Ayarları
         </button>
       </div>
 
-      {tab === 'lotlar' && (
+      {/* SKT Raporu Tab */}
+      {tab === 'rapor' && (
         <>
           {/* Filters */}
           <Card>
             <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -714,17 +1095,21 @@ export function SktYonetimPage() {
                   />
                 </div>
                 <Select value={durumFilter} onValueChange={setDurumFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectTrigger className="w-full lg:w-[180px]">
                     <SelectValue placeholder="Durum filtrele" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="TUMU">Tümü</SelectItem>
-                    <SelectItem value="GECMIS">Geçmiş</SelectItem>
+                    <SelectItem value="GECMIS">Kritik</SelectItem>
                     <SelectItem value="RISKLI">Riskli</SelectItem>
                     <SelectItem value="NORMAL">Normal</SelectItem>
                     <SelectItem value="SKTSIZ">SKT'siz</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button variant="outline" onClick={() => handleOpenOnerisi()}>
+                  <Lightbulb className="h-4 w-4 mr-2" />
+                  Lot Önerisi Al
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -750,7 +1135,7 @@ export function SktYonetimPage() {
                         <th className="px-4 py-3 text-left text-sm font-medium">Ürün</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Miktar</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">SKT</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">Kalan Gün</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Gün Kaldı</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Durum</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Konum</th>
                         <th className="px-4 py-3 text-right text-sm font-medium">İşlemler</th>
@@ -760,14 +1145,14 @@ export function SktYonetimPage() {
                       {filteredLots.map((lot) => {
                         const kalanGunInfo = getKalanGunLabel(lot.kalan_gun)
                         const durumBadge = getSktDurumBadge(lot.skt_durum)
+                        const rowColor = getRowColor(lot.kalan_gun, uyariEsigi)
 
                         return (
                           <tr
                             key={lot.id}
                             className={cn(
                               'border-b hover:bg-muted/30 transition-colors',
-                              lot.skt_durum === 'SON_KULLANIM_GECDI' && 'bg-red-50/50',
-                              lot.skt_durum === 'SON_KULLANIM_RISKLI' && 'bg-orange-50/50'
+                              rowColor
                             )}
                           >
                             <td className="px-4 py-3 font-mono text-sm">{lot.lot_no}</td>
@@ -780,12 +1165,14 @@ export function SktYonetimPage() {
                             <td className="px-4 py-3">
                               {lot.miktar} {lot.birim}
                             </td>
-                            <td className="px-4 py-3 text-sm">{formatDate(lot.son_kullanma)}</td>
+                            <td className="px-4 py-3 text-sm">{formatDateShort(lot.son_kullanma)}</td>
                             <td className={cn('px-4 py-3 text-sm font-medium', kalanGunInfo.className)}>
                               {kalanGunInfo.text}
                             </td>
                             <td className="px-4 py-3">
-                              <Badge variant={durumBadge.variant}>{durumBadge.label}</Badge>
+                              <Badge className={durumBadge.className}>
+                                {durumBadge.label}
+                              </Badge>
                             </td>
                             <td className="px-4 py-3 text-sm">{lot.konum || '-'}</td>
                             <td className="px-4 py-3 text-right">
@@ -796,6 +1183,14 @@ export function SktYonetimPage() {
                                   onClick={() => handleOpenDetail(lot)}
                                 >
                                   <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenOnerisi(lot)}
+                                  title="Lot önerisi al"
+                                >
+                                  <Lightbulb className="h-4 w-4" />
                                 </Button>
                                 {(lot.skt_durum === 'SON_KULLANIM_GECDI' ||
                                   lot.skt_durum === 'SON_KULLANIM_RISKLI') && (
@@ -822,19 +1217,93 @@ export function SktYonetimPage() {
         </>
       )}
 
+      {/* İşlemler Tab */}
       {tab === 'islemler' && (
-        <Card>
-          <CardContent className="p-0">
-            {islemlerLoading ? (
-              <div className="flex items-center justify-center h-48">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : !islemlerData?.data?.length ? (
-              <div className="flex flex-col items-center justify-center h-48 text-secondary">
-                <AlertTriangle className="h-12 w-12 mb-4 opacity-50" />
-                <p>SKT işlemi bulunamadı</p>
-              </div>
-            ) : (
+        <>
+          {/* Pending Requests */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Bekleyen Talepler</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {islemlerLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : !islemlerData?.data?.length ? (
+                <div className="flex flex-col items-center justify-center h-32 text-secondary">
+                  <Check className="h-12 w-12 mb-4 opacity-50" />
+                  <p>Bekleyen işlem talebi yok</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="px-4 py-3 text-left text-sm font-medium">İşlem Türü</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Lot No</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Ürün</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Miktar</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Talep Eden</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Tarih</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium">Onay/Red</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {islemlerData.data.map((islem) => (
+                        <tr key={islem.id} className="border-b hover:bg-muted/30">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {getIslemTuruIcon(islem.islem_turu)}
+                              <span className="font-medium">{islem.islem_turu}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-sm">{islem.lot_no}</td>
+                          <td className="px-4 py-3">{islem.urun_ad}</td>
+                          <td className="px-4 py-3">
+                            {islem.islem_miktari} {islem.birim}
+                          </td>
+                          <td className="px-4 py-3 text-sm">{islem.talep_eden}</td>
+                          <td className="px-4 py-3 text-sm">{formatDateShort(islem.talep_tarihi)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => handleApprove(islem.id)}
+                                disabled={approveIslem.isPending}
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Onayla
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleReject(islem.id)}
+                                disabled={rejectIslem.isPending}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reddet
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Request History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Talep Geçmişi</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -849,30 +1318,131 @@ export function SktYonetimPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {islemlerData.data.map((islem) => (
-                      <tr key={islem.id} className="border-b hover:bg-muted/30">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {getIslemTuruIcon(islem.islem_turu)}
-                            <span className="font-medium">{islem.islem_turu}</span>
-                          </div>
+                    {islemlerLoading ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-sm">{islem.lot_no}</td>
-                        <td className="px-4 py-3">{islem.urun_ad}</td>
-                        <td className="px-4 py-3">
-                          {islem.islem_miktari} {islem.birim}
-                        </td>
-                        <td className="px-4 py-3">{getIslemDurumBadge(islem.talep_durumu)}</td>
-                        <td className="px-4 py-3 text-sm">{formatDate(islem.talep_tarihi)}</td>
-                        <td className="px-4 py-3 text-sm">{islem.talep_eden}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      islemlerData?.data?.map((islem) => (
+                        <tr key={islem.id} className="border-b hover:bg-muted/30">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {getIslemTuruIcon(islem.islem_turu)}
+                              <span className="font-medium">{islem.islem_turu}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-sm">{islem.lot_no}</td>
+                          <td className="px-4 py-3">{islem.urun_ad}</td>
+                          <td className="px-4 py-3">
+                            {islem.islem_miktari} {islem.birim}
+                          </td>
+                          <td className="px-4 py-3">{getIslemDurumBadge(islem.talep_durumu)}</td>
+                          <td className="px-4 py-3 text-sm">{formatDateShort(islem.talep_tarihi)}</td>
+                          <td className="px-4 py-3 text-sm">{islem.talep_eden}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Eşik Ayarları Tab */}
+      {tab === 'esikler' && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Mevcut Eşik Ayarları
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="p-6 rounded-lg bg-orange-50 border border-orange-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 rounded-lg bg-orange-100">
+                      <AlertTriangle className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Risk Eşiği</p>
+                      <p className="text-sm text-secondary">Riskli lot uyarısı için gün limiti</p>
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-orange-600">
+                    {esikData?.risk_esigi_gun || 30} gün
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-lg bg-red-50 border border-red-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 rounded-lg bg-red-100">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Kritik Eşik</p>
+                      <p className="text-sm text-secondary">Kritik lot uyarısı için gün limiti</p>
+                    </div>
+                  </div>
+                  <div className="text-3xl font-bold text-red-600">
+                    {esikData?.kritik_esigi_gun || 7} gün
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Button variant="outline" onClick={() => setEsikDialogOpen(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Eşikleri Düzenle
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Color Legend */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Durum Renk Kodları</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded bg-red-500"></div>
+                  <div>
+                    <p className="font-medium">Kritik (SKT &lt; 7 gün veya süresi dolmuş)</p>
+                    <p className="text-sm text-secondary">Hemen işlem yapılması gerekiyor</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded bg-orange-500"></div>
+                  <div>
+                    <p className="font-medium">Riskli (SKT &lt; 30 gün)</p>
+                    <p className="text-sm text-secondary">Planlama yapılması öneriliyor</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded bg-yellow-500"></div>
+                  <div>
+                    <p className="font-medium">Dikkat (SKT &lt; 60 gün)</p>
+                    <p className="text-sm text-secondary">İzlenmesi gereken lotlar</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded bg-green-500"></div>
+                  <div>
+                    <p className="font-medium">Normal (SKT ≥ 60 gün)</p>
+                    <p className="text-sm text-secondary">Güvenli stok durumu</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Dialogs */}
@@ -888,6 +1458,22 @@ export function SktYonetimPage() {
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}
         lot={selectedLot}
+      />
+
+      <LotOnerisiDialog
+        open={onerisiDialogOpen}
+        onOpenChange={setOnerisiDialogOpen}
+        urunId={onerisiUrunId}
+        miktar={onerisiMiktar}
+        stokTipi={onerisiStokTipi}
+      />
+
+      <EsikAyarlariDialog
+        open={esikDialogOpen}
+        onOpenChange={setEsikDialogOpen}
+        esik={esikData}
+        onUpdate={handleUpdateEsik}
+        isLoading={updateEsik.isPending}
       />
     </div>
   )

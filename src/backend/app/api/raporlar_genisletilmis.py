@@ -20,6 +20,7 @@ from app.models.satis import SatisKaydi, SatisKalemi
 from app.models.uretim import UretimEmri
 from app.models.musteri import Musteri
 from app.models.kalite_kontrol import KaliteKontrol
+from app.models.rapor import RaporTanimi, RaporCektirme, RaporSchedule
 
 router = APIRouter()
 
@@ -661,4 +662,522 @@ async def depo_doluluk_raporu(
         genel_toplam_kapasite=genel_toplam_kapasite,
         genel_toplam_dolu=genel_toplam_dolu,
         genel_doluluk_yuzde=round(genel_doluluk_yuzde, 2)
+    )
+
+
+# ==================== RAPOR TANIMI CRUD ====================
+
+class RaporTanimiCreate(BaseModel):
+    rapor_adi: str
+    rapor_turu: str
+    sorgu_template: str
+    parametreler: Optional[List[dict]] = []
+    grafik_turu: Optional[str] = None
+    aktif: bool = True
+    rol_bazli_erisim: Optional[List[str]] = []
+
+
+class RaporTanimiUpdate(BaseModel):
+    rapor_adi: Optional[str] = None
+    rapor_turu: Optional[str] = None
+    sorgu_template: Optional[str] = None
+    parametreler: Optional[List[dict]] = None
+    grafik_turu: Optional[str] = None
+    aktif: Optional[bool] = None
+    rol_bazli_erisim: Optional[List[str]] = None
+
+
+class RaporTanimiResponse(BaseModel):
+    id: str
+    rapor_adi: str
+    rapor_turu: str
+    sorgu_template: str
+    parametreler: List[dict]
+    grafik_turu: Optional[str]
+    aktif: bool
+    rol_bazli_erisim: List[str]
+    olusturma_tarihi: str
+    guncelleme_tarihi: str
+    olusturan_kullanici_id: str
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/tanimlar", response_model=List[RaporTanimiResponse])
+async def list_rapor_tanimlari(
+    kategori: Optional[str] = Query(None),
+    rapor_turu: Optional[str] = Query(None),
+    aktif: Optional[bool] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """List all report definitions."""
+    query = db.query(RaporTanimi)
+    if kategori:
+        query = query.filter(RaporTanimi.rapor_turu == kategori)
+    if rapor_turu:
+        query = query.filter(RaporTanimi.rapor_turu == rapor_turu)
+    if aktif is not None:
+        query = query.filter(RaporTanimi.aktif == aktif)
+    tanimlar = query.order_by(RaporTanimi.rapor_adi).all()
+    return [
+        RaporTanimiResponse(
+            id=str(t.id),
+            rapor_adi=t.rapor_adi,
+            rapor_turu=t.rapor_turu,
+            sorgu_template=t.sorgu_template,
+            parametreler=t.parametreler or [],
+            grafik_turu=t.grafik_turu,
+            aktif=t.aktif,
+            rol_bazli_erisim=t.rol_bazli_erisim or [],
+            olusturma_tarihi=t.olusturma_tarihi,
+            guncelleme_tarihi=t.guncelleme_tarihi,
+            olusturan_kullanici_id=str(t.olusturan_kullanici_id),
+        )
+        for t in tanimlar
+    ]
+
+
+@router.post("/tanimlar", response_model=RaporTanimiResponse)
+async def create_rapor_tanimi(
+    data: RaporTanimiCreate,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Create a new report definition."""
+    now = datetime.now().isoformat()
+    tanim = RaporTanimi(
+        rapor_adi=data.rapor_adi,
+        rapor_turu=data.rapor_turu,
+        sorgu_template=data.sorgu_template,
+        parametreler=data.parametreler,
+        grafik_turu=data.grafik_turu,
+        aktif=data.aktif,
+        rol_bazli_erisim=data.rol_bazli_erisim,
+        olusturma_tarihi=now,
+        guncelleme_tarihi=now,
+        olusturan_kullanici_id=current_user.id,
+    )
+    db.add(tanim)
+    db.commit()
+    db.refresh(tanim)
+    return RaporTanimiResponse(
+        id=str(tanim.id),
+        rapor_adi=tanim.rapor_adi,
+        rapor_turu=tanim.rapor_turu,
+        sorgu_template=tanim.sorgu_template,
+        parametreler=tanim.parametreler or [],
+        grafik_turu=tanim.grafik_turu,
+        aktif=tanim.aktif,
+        rol_bazli_erisim=tanim.rol_bazli_erisim or [],
+        olusturma_tarihi=tanim.olusturma_tarihi,
+        guncelleme_tarihi=tanim.guncelleme_tarihi,
+        olusturan_kullanici_id=str(tanim.olusturan_kullanici_id),
+    )
+
+
+@router.put("/tanimlar/{tanim_id}", response_model=RaporTanimiResponse)
+async def update_rapor_tanimi(
+    tanim_id: str,
+    data: RaporTanimiUpdate,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Update a report definition."""
+    tanim = db.query(RaporTanimi).filter(RaporTanimi.id == tanim_id).first()
+    if not tanim:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Rapor tanımı bulunamadı")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(tanim, field, value)
+    tanim.guncelleme_tarihi = datetime.now().isoformat()
+    db.commit()
+    db.refresh(tanim)
+    return RaporTanimiResponse(
+        id=str(tanim.id),
+        rapor_adi=tanim.rapor_adi,
+        rapor_turu=tanim.rapor_turu,
+        sorgu_template=tanim.sorgu_template,
+        parametreler=tanim.parametreler or [],
+        grafik_turu=tanim.grafik_turu,
+        aktif=tanim.aktif,
+        rol_bazli_erisim=tanim.rol_bazli_erisim or [],
+        olusturma_tarihi=tanim.olusturma_tarihi,
+        guncelleme_tarihi=tanim.guncelleme_tarihi,
+        olusturan_kullanici_id=str(tanim.olusturan_kullanici_id),
+    )
+
+
+@router.delete("/tanimlar/{tanim_id}")
+async def delete_rapor_tanimi(
+    tanim_id: str,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Delete a report definition."""
+    tanim = db.query(RaporTanimi).filter(RaporTanimi.id == tanim_id).first()
+    if not tanim:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Rapor tanımı bulunamadı")
+    db.delete(tanim)
+    db.commit()
+    return {"message": "Rapor tanımı silindi"}
+
+
+@router.post("/tanimlar/{tanim_id}/kopyala", response_model=RaporTanimiResponse)
+async def kopyala_rapor_tanimi(
+    tanim_id: str,
+    yeni_ad: str,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Copy a report definition with a new name."""
+    original = db.query(RaporTanimi).filter(RaporTanimi.id == tanim_id).first()
+    if not original:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Rapor tanımı bulunamadı")
+    now = datetime.now().isoformat()
+    yeni = RaporTanimi(
+        rapor_adi=yeni_ad,
+        rapor_turu=original.rapor_turu,
+        sorgu_template=original.sorgu_template,
+        parametreler=original.parametreler,
+        grafik_turu=original.grafik_turu,
+        aktif=original.aktif,
+        rol_bazli_erisim=original.rol_bazli_erisim,
+        olusturma_tarihi=now,
+        guncelleme_tarihi=now,
+        olusturan_kullanici_id=current_user.id,
+    )
+    db.add(yeni)
+    db.commit()
+    db.refresh(yeni)
+    return RaporTanimiResponse(
+        id=str(yeni.id),
+        rapor_adi=yeni.rapor_adi,
+        rapor_turu=yeni.rapor_turu,
+        sorgu_template=yeni.sorgu_template,
+        parametreler=yeni.parametreler or [],
+        grafik_turu=yeni.grafik_turu,
+        aktif=yeni.aktif,
+        rol_bazli_erisim=yeni.rol_bazli_erisim or [],
+        olusturma_tarihi=yeni.olusturma_tarihi,
+        guncelleme_tarihi=yeni.guncelleme_tarihi,
+        olusturan_kullanici_id=str(yeni.olusturan_kullanici_id),
+    )
+
+
+# ==================== RAPOR ÇALIŞTIRMA & SONUÇ ====================
+
+class RaporCalistirRequest(BaseModel):
+    tanim_id: str
+    parametreler: Optional[dict] = {}
+
+
+class RaporSonucResponse(BaseModel):
+    sonuc_id: str
+    tanim_id: str
+    durum: str
+    baslangic_zamani: str
+    bitis_zamani: Optional[str] = None
+    toplam_satir: Optional[int] = None
+    dosya_url: Optional[str] = None
+    data: Optional[List[dict]] = None
+
+
+@router.post("/calistir", response_model=RaporSonucResponse)
+async def calistir_rapor(
+    data: RaporCalistirRequest,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Execute a report definition (simulated — no actual SQL execution)."""
+    tanim = db.query(RaporTanimi).filter(RaporTanimi.id == data.tanim_id).first()
+    if not tanim:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Rapor tanımı bulunamadı")
+
+    now = datetime.now().isoformat()
+    cektirme = RaporCektirme(
+        rapor_id=tanim.id,
+        parametre_degerleri=data.parametreler or {},
+        cikti_format="HTML",
+        calisma_zamani=now,
+        durum="TAMAMLANDI",
+        satir_sayisi=0,
+        olusturma_tarihi=now,
+        olusturan_kullanici_id=current_user.id,
+    )
+    db.add(cektirme)
+    db.commit()
+    db.refresh(cektirme)
+
+    return RaporSonucResponse(
+        sonuc_id=str(cektirme.id),
+        tanim_id=str(tanim.id),
+        durum="hazir",
+        baslangic_zamani=cektirme.calisma_zamani,
+        bitis_zamani=now,
+        toplam_satir=cektirme.satir_sayisi,
+        data=[],
+    )
+
+
+@router.get("/sonuc/{sonuc_id}", response_model=RaporSonucResponse)
+async def get_rapor_sonuc(
+    sonuc_id: str,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Get report execution result."""
+    cektirme = db.query(RaporCektirme).filter(RaporCektirme.id == sonuc_id).first()
+    if not cektirme:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Rapor sonucu bulunamadı")
+    durum_map = {"TAMAMLANDI": "hazir", "CALISIYOR": "hazirlaniyor", "HATA": "hata", "BEKLEMEDE": "hazirlaniyor"}
+    return RaporSonucResponse(
+        sonuc_id=str(cektirme.id),
+        tanim_id=str(cektirme.rapor_id),
+        durum=durum_map.get(cektirme.durum, "hazir"),
+        baslangic_zamani=cektirme.calisma_zamani or "",
+        bitis_zamani=cektirme.calisma_zamani,
+        toplam_satir=cektirme.satir_sayisi,
+        dosya_url=cektirme.cikti_url,
+        data=None,
+    )
+
+
+# ==================== RAPOR ÇEKTİRME GEÇMİŞİ ====================
+
+class RaporCektirmeResponse(BaseModel):
+    id: str
+    rapor_id: str
+    rapor_adi: str
+    cektirme_zamani: str
+    cektiren_kullanici: str
+    parametreler: dict
+    durum: str
+    cikti_format: Optional[str] = None
+    cikti_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/cektirmeler", response_model=List[RaporCektirmeResponse])
+async def list_rapor_cektirmeler(
+    sayfa: int = Query(1, ge=1),
+    sayfa_boyutu: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """List report execution history."""
+    offset = (sayfa - 1) * sayfa_boyutu
+    cektirmeler = (
+        db.query(RaporCektirme)
+        .order_by(RaporCektirme.olusturma_tarihi.desc())
+        .offset(offset)
+        .limit(sayfa_boyutu)
+        .all()
+    )
+    results = []
+    for c in cektirmeler:
+        tanim = db.query(RaporTanimi).filter(RaporTanimi.id == c.rapor_id).first()
+        kullanici = db.query(Kullanici).filter(Kullanici.id == c.olusturan_kullanici_id).first()
+        results.append(RaporCektirmeResponse(
+            id=str(c.id),
+            rapor_id=str(c.rapor_id),
+            rapor_adi=tanim.rapor_adi if tanim else "Bilinmeyen",
+            cektirme_zamani=c.olusturma_tarihi,
+            cektiren_kullanici=kullanici.ad + " " + kullanici.soyad if kullanici else "Bilinmeyen",
+            parametreler=c.parametre_degerleri or {},
+            durum="basarili" if c.durum == "TAMAMLANDI" else "basarisiz",
+            cikti_format=c.cikti_format,
+            cikti_url=c.cikti_url,
+        ))
+    return results
+
+
+# ==================== RAPORLAMA ZAMANLAMA ====================
+
+class RaporScheduleCreate(BaseModel):
+    rapor_id: str
+    schedule_tipi: str
+    schedule_time: str
+    schedule_hafta_gun: Optional[str] = None
+    schedule_ay_gun: Optional[int] = None
+    aktif: bool = True
+    alicilar: Optional[List[dict]] = []
+
+
+class RaporScheduleUpdate(BaseModel):
+    schedule_tipi: Optional[str] = None
+    schedule_time: Optional[str] = None
+    schedule_hafta_gun: Optional[str] = None
+    schedule_ay_gun: Optional[int] = None
+    aktif: Optional[bool] = None
+    alicilar: Optional[List[dict]] = None
+
+
+class RaporScheduleResponse(BaseModel):
+    id: str
+    rapor_id: str
+    rapor_adi: str
+    schedule_tipi: str
+    schedule_time: str
+    schedule_hafta_gun: Optional[str]
+    schedule_ay_gun: Optional[int]
+    aktif: bool
+    son_calisma: Optional[str]
+    son_sonuc: Optional[str]
+    alicilar: List[dict]
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/schedule", response_model=List[RaporScheduleResponse])
+async def list_rapor_schedule(
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """List all report schedules."""
+    schedules = db.query(RaporSchedule).all()
+    results = []
+    for s in schedules:
+        tanim = db.query(RaporTanimi).filter(RaporTanimi.id == s.rapor_id).first()
+        results.append(RaporScheduleResponse(
+            id=str(s.id),
+            rapor_id=str(s.rapor_id),
+            rapor_adi=tanim.rapor_adi if tanim else "Bilinmeyen",
+            schedule_tipi=s.schedule_tipi,
+            schedule_time=s.schedule_time,
+            schedule_hafta_gun=s.schedule_hafta_gun,
+            schedule_ay_gun=s.schedule_ay_gun,
+            aktif=s.aktif,
+            son_calisma=s.son_calisma,
+            son_sonuc=s.son_sonuc,
+            alicilar=s.alicilar or [],
+        ))
+    return results
+
+
+@router.post("/schedule", response_model=RaporScheduleResponse)
+async def create_rapor_schedule(
+    data: RaporScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Create a report schedule."""
+    now = datetime.now().isoformat()
+    schedule = RaporSchedule(
+        rapor_id=data.rapor_id,
+        schedule_tipi=data.schedule_tipi,
+        schedule_time=data.schedule_time,
+        schedule_hafta_gun=data.schedule_hafta_gun,
+        schedule_ay_gun=data.schedule_ay_gun,
+        aktif=data.aktif,
+        alicilar=data.alicilar,
+        olusturma_tarihi=now,
+        guncelleme_tarihi=now,
+        olusturan_kullanici_id=current_user.id,
+    )
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    tanim = db.query(RaporTanimi).filter(RaporTanimi.id == schedule.rapor_id).first()
+    return RaporScheduleResponse(
+        id=str(schedule.id),
+        rapor_id=str(schedule.rapor_id),
+        rapor_adi=tanim.rapor_adi if tanim else "Bilinmeyen",
+        schedule_tipi=schedule.schedule_tipi,
+        schedule_time=schedule.schedule_time,
+        schedule_hafta_gun=schedule.schedule_hafta_gun,
+        schedule_ay_gun=schedule.schedule_ay_gun,
+        aktif=schedule.aktif,
+        son_calisma=schedule.son_calisma,
+        son_sonuc=schedule.son_sonuc,
+        alicilar=schedule.alicilar or [],
+    )
+
+
+@router.put("/schedule/{schedule_id}", response_model=RaporScheduleResponse)
+async def update_rapor_schedule(
+    schedule_id: str,
+    data: RaporScheduleUpdate,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Update a report schedule."""
+    schedule = db.query(RaporSchedule).filter(RaporSchedule.id == schedule_id).first()
+    if not schedule:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Zamanlama bulunamadı")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(schedule, field, value)
+    schedule.guncelleme_tarihi = datetime.now().isoformat()
+    db.commit()
+    db.refresh(schedule)
+    tanim = db.query(RaporTanimi).filter(RaporTanimi.id == schedule.rapor_id).first()
+    return RaporScheduleResponse(
+        id=str(schedule.id),
+        rapor_id=str(schedule.rapor_id),
+        rapor_adi=tanim.rapor_adi if tanim else "Bilinmeyen",
+        schedule_tipi=schedule.schedule_tipi,
+        schedule_time=schedule.schedule_time,
+        schedule_hafta_gun=schedule.schedule_hafta_gun,
+        schedule_ay_gun=schedule.schedule_ay_gun,
+        aktif=schedule.aktif,
+        son_calisma=schedule.son_calisma,
+        son_sonuc=schedule.son_sonuc,
+        alicilar=schedule.alicilar or [],
+    )
+
+
+@router.delete("/schedule/{schedule_id}")
+async def delete_rapor_schedule(
+    schedule_id: str,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Delete a report schedule."""
+    schedule = db.query(RaporSchedule).filter(RaporSchedule.id == schedule_id).first()
+    if not schedule:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Zamanlama bulunamadı")
+    db.delete(schedule)
+    db.commit()
+    return {"message": "Zamanlama silindi"}
+
+
+@router.patch("/schedule/{schedule_id}/toggle", response_model=RaporScheduleResponse)
+async def toggle_rapor_schedule(
+    schedule_id: str,
+    aktif: bool,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Toggle schedule active/inactive."""
+    schedule = db.query(RaporSchedule).filter(RaporSchedule.id == schedule_id).first()
+    if not schedule:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Zamanlama bulunamadı")
+    schedule.aktif = aktif
+    schedule.guncelleme_tarihi = datetime.now().isoformat()
+    db.commit()
+    db.refresh(schedule)
+    tanim = db.query(RaporTanimi).filter(RaporTanimi.id == schedule.rapor_id).first()
+    return RaporScheduleResponse(
+        id=str(schedule.id),
+        rapor_id=str(schedule.rapor_id),
+        rapor_adi=tanim.rapor_adi if tanim else "Bilinmeyen",
+        schedule_tipi=schedule.schedule_tipi,
+        schedule_time=schedule.schedule_time,
+        schedule_hafta_gun=schedule.schedule_hafta_gun,
+        schedule_ay_gun=schedule.schedule_ay_gun,
+        aktif=schedule.aktif,
+        son_calisma=schedule.son_calisma,
+        son_sonuc=schedule.son_sonuc,
+        alicilar=schedule.alicilar or [],
     )

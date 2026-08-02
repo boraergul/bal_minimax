@@ -973,3 +973,227 @@ export function useSistemAyarlarMutations() {
   
   return { updateAyar }
 }
+
+// ============ NEW HOOKS FOR FULLY IMPLEMENTED PAGES ============
+
+// İzlenebilirlik hooks
+export function useIzlenebilirlikByLot(lotNo: string) {
+  return useQuery({
+    queryKey: ['izlenebilirlik', lotNo],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/raporlar/izlenebilirlik/lot/${lotNo}`)
+      return response.data
+    },
+    enabled: !!lotNo,
+  })
+}
+
+export function useGidaIzlenebilirlik(params?: { tarih_bas?: string; tarih_bit?: string }) {
+  return useQuery({
+    queryKey: ['gida-izlenebilirlik', params],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/raporlar/izlenebilirlik/gida`, { params })
+      return response.data
+    },
+  })
+}
+
+export function useIzlenebilirlikLog(stokId: string) {
+  return useQuery({
+    queryKey: ['izlenebilirlik-log', stokId],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/raporlar/izlenebilirlik/log/${stokId}`)
+      return response.data
+    },
+    enabled: !!stokId,
+  })
+}
+
+// Maliyet hooks (additional)
+export function useMaliyetList(params?: { tarih?: string; sayfa?: number; sayfa_boyutu?: number }) {
+  return useQuery({
+    queryKey: ['uretim-maliyet-listesi', params],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/uretim/maliyet`, { params })
+      return response.data
+    },
+  })
+}
+
+export function useMaliyetDetay(uretimId: string) {
+  return useQuery({
+    queryKey: ['uretim-maliyet-detay', uretimId],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/uretim/maliyet/emir/${uretimId}`)
+      return response.data
+    },
+    enabled: !!uretimId,
+  })
+}
+
+export function useMaliyetMutationsExtended() {
+  const queryClient = useQueryClient()
+  
+  const addIscilik = useMutation({
+    mutationFn: async ({ uretimId, ...data }: any) => {
+      const response = await api.post(`${API_BASE}/uretim/maliyet/emir/${uretimId}/iscilik`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-listesi'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-detay'] })
+    },
+  })
+  
+  const addEnerji = useMutation({
+    mutationFn: async ({ uretimId, ...data }: any) => {
+      const response = await api.post(`${API_BASE}/uretim/maliyet/emir/${uretimId}/enerji`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-listesi'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-detay'] })
+    },
+  })
+  
+  const addBakim = useMutation({
+    mutationFn: async ({ uretimId, ...data }: any) => {
+      const response = await api.post(`${API_BASE}/uretim/maliyet/emir/${uretimId}/bakim`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-listesi'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-detay'] })
+    },
+  })
+  
+  const addGenelGider = useMutation({
+    mutationFn: async ({ uretimId, ...data }: any) => {
+      const response = await api.post(`${API_BASE}/uretim/maliyet/emir/${uretimId}/genel-gider`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-listesi'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-detay'] })
+    },
+  })
+  
+  const updateIscilik = useMutation({
+    mutationFn: async ({ id, uretimId, ...data }: any) => {
+      const response = await api.put(`${API_BASE}/uretim/maliyet/emir/${uretimId}/iscilik/${id}`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-detay'] })
+    },
+  })
+  
+  const deleteIscilik = useMutation({
+    mutationFn: async ({ id, uretimId }: any) => {
+      await api.delete(`${API_BASE}/uretim/maliyet/emir/${uretimId}/iscilik/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet'] })
+      queryClient.invalidateQueries({ queryKey: ['uretim-maliyet-detay'] })
+    },
+  })
+  
+  return { addIscilik, addEnerji, addBakim, addGenelGider, updateIscilik, deleteIscilik }
+}
+
+// Özellik hooks (additional)
+export function useOzelliklerExtended(kategori?: string) {
+  return useQuery({
+    queryKey: ['ozellikler', kategori],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/ozellikler`, {
+        params: kategori ? { kategori } : {},
+      })
+      return response.data
+    },
+  })
+}
+
+export function useOzelliklerMutationsExtended() {
+  const queryClient = useQueryClient()
+  
+  const createOzellik = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post(`${API_BASE}/ozellikler`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ozellikler'] })
+    },
+  })
+  
+  const updateOzellik = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const response = await api.put(`${API_BASE}/ozellikler/${id}`, data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ozellikler'] })
+    },
+  })
+  
+  const deleteOzellik = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`${API_BASE}/ozellikler/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ozellikler'] })
+    },
+  })
+  
+  const copyOzellikler = useMutation({
+    mutationFn: async ({ kaynak_kategori, hedef_kategori }: { kaynak_kategori: string; hedef_kategori: string }) => {
+      const response = await api.post(`${API_BASE}/ozellikler/kopyala`, {
+        kaynak_kategori,
+        hedef_kategori,
+      })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ozellikler'] })
+    },
+  })
+  
+  return { createOzellik, updateOzellik, deleteOzellik, copyOzellikler }
+}
+
+// Rapor hooks (additional)
+export function useFireAnaliz(params?: { tarih_araligi?: string }) {
+  return useQuery({
+    queryKey: ['fire-analiz', params],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/raporlar/uretim/fire-analiz`, { params })
+      return response.data
+    },
+  })
+}
+
+export function useKaliteOzet(params?: { tarih_araligi?: string }) {
+  return useQuery({
+    queryKey: ['kalite-ozet', params],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/raporlar/kalite/ozet`, { params })
+      return response.data
+    },
+  })
+}
+
+export function useDepoDoluluk(params?: { depo_id?: string }) {
+  return useQuery({
+    queryKey: ['depo-doluluk', params],
+    queryFn: async () => {
+      const response = await api.get(`${API_BASE}/raporlar/depo/doluluk`, { params })
+      return response.data
+    },
+  })
+}

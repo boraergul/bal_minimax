@@ -747,3 +747,120 @@ async def urun_etiketi(
         "url": f"/api/v1/etiket/baski/urun_{urun.stok_kodu or urun.id}.{sablon.cikti_format.lower()}",
         "not": "Bu bir simülasyondur."
     }
+
+
+# ==================== FRONTEND HOOK COMPATIBILITY ENDPOINTS ====================
+
+class YazdirRequest(BaseModel):
+    sablon_id: str
+    stok_id: Optional[str] = None
+    miktar: int = 1
+
+
+class LotYazdirRequest(BaseModel):
+    sablon_id: str
+    lot_no: str
+    miktar: int = 1
+
+
+class BarkodOlusturRequest(BaseModel):
+    urun_id: str
+    lot_no: Optional[str] = None
+
+
+@router.post("/yazdir")
+async def etiket_yazdir(
+    request: YazdirRequest,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Stok ID bazlı etiket yazdırma — useEtiketYazdir() hook uyumlu."""
+    sablon = db.query(EtiketSablon).filter(
+        EtiketSablon.id == request.sablon_id,
+        EtiketSablon.silme_tarihi.is_(None)
+    ).first()
+    if not sablon:
+        raise HTTPException(status_code=404, detail="Şablon bulunamadı")
+
+    lot_data = None
+    if request.stok_id:
+        stok = db.query(StokKarti).filter(StokKarti.id == request.stok_id).first()
+        if stok:
+            urun = db.query(Urun).filter(Urun.id == stok.urun_id).first()
+            lot_data = {
+                "stok_id": str(stok.id),
+                "lot_no": stok.lot_no,
+                "urun_ad": urun.ad if urun else None,
+                "miktar": float(stok.miktar),
+                "birim": stok.birim,
+                "konum": stok.konum,
+            }
+
+    return {
+        "message": "Etiket yazdırma talebi alındı",
+        "sablon_id": str(sablon.id),
+        "sablon_ad": sablon.ad,
+        "stok_id": request.stok_id,
+        "miktar": request.miktar,
+        "lot_data": lot_data,
+        "url": f"/api/v1/etiket/baski/{str(uuid.uuid4())}.{sablon.cikti_format.lower()}",
+    }
+
+
+@router.post("/lot-yazdir")
+async def lot_etiket_yazdir(
+    request: LotYazdirRequest,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Lot no bazlı etiket yazdırma — useEtiketLotYazdir() hook uyumlu."""
+    sablon = db.query(EtiketSablon).filter(
+        EtiketSablon.id == request.sablon_id,
+        EtiketSablon.silme_tarihi.is_(None)
+    ).first()
+    if not sablon:
+        raise HTTPException(status_code=404, detail="Şablon bulunamadı")
+
+    stok = db.query(StokKarti).filter(StokKarti.lot_no == request.lot_no).first()
+    lot_data = None
+    if stok:
+        urun = db.query(Urun).filter(Urun.id == stok.urun_id).first()
+        lot_data = {
+            "lot_no": stok.lot_no,
+            "urun_ad": urun.ad if urun else None,
+            "miktar": float(stok.miktar),
+            "birim": stok.birim,
+        }
+
+    return {
+        "message": "Lot etiket yazdırma talebi alındı",
+        "sablon_id": str(sablon.id),
+        "sablon_ad": sablon.ad,
+        "lot_no": request.lot_no,
+        "miktar": request.miktar,
+        "lot_data": lot_data,
+        "url": f"/api/v1/etiket/baski/lot_{request.lot_no}.{sablon.cikti_format.lower()}",
+    }
+
+
+@router.post("/barkod-olustur")
+async def barkod_olustur(
+    request: BarkodOlusturRequest,
+    db: Session = Depends(get_db),
+    current_user: Kullanici = Depends(get_current_user),
+):
+    """Barkod oluşturma — useBarkodOlustur() hook uyumlu."""
+    urun = db.query(Urun).filter(Urun.id == request.urun_id).first()
+    if not urun:
+        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
+
+    barkod = urun.barkod or str(uuid.uuid4())[:12]
+
+    return {
+        "barkod": barkod,
+        "format": "CODE128",
+        "urun_id": str(urun.id),
+        "urun_ad": urun.ad,
+        "stok_kodu": urun.stok_kodu,
+        "data_url": None,
+    }
